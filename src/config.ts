@@ -5,10 +5,11 @@
 //
 // If you want to know what a setting does, the table in the README is the best
 // reference. The comments on the interface below say the same thing in short form.
+import { createHash } from "node:crypto";
 import os from "node:os";
 import path from "node:path";
 
-export type AccessMode = "read_only" | "control_only" | "full";
+export type AccessMode = "read_only" | "control_only" | "edit_only" | "full";
 
 export interface Config {
   /** Base URL of Home Assistant, without a trailing slash or /api suffix. */
@@ -20,17 +21,21 @@ export interface Config {
   token: string;
   /** Skip TLS verification, for self-signed certificates on a LAN. */
   insecureTls: boolean;
-  // How much the assistant may do. One setting, three levels, so there is no way to pick
-  // a contradictory combination:
-  //   read_only    look at everything, change nothing (the default)
-  //   control_only everyday use: read everything, plus call_service for lights, switches,
-  //                fans, media players and so on. No tools that edit automations, scripts,
-  //                helpers, dashboards, scenes, settings or the system itself.
-  //   full         everything, with approval for risky actions
+  // What the assistant may do, built from two independent opt-in switches. Each one adds
+  // its own ability, so neither is ever redundant:
+  //   allowControl  operate devices through call_service (lights, switches, fans, media
+  //                 players and so on). Only everyday devices unless allowEdit is also on.
+  //   allowEdit     change how Home Assistant is set up: automations, scripts, helpers,
+  //                 scenes, dashboards, registries, settings, restart and so on.
+  // Neither on is read only (the default). Both on is full access. The raw write tools need
+  // both, because they can send any service call.
+  allowControl: boolean;
+  allowEdit: boolean;
+  /** A summary of the two switches. */
   accessMode: AccessMode;
-  /** True in read_only mode: only read tools are registered. (Derived from accessMode.) */
+  /** Neither switch is on, so only read tools are registered. */
   readOnly: boolean;
-  /** True in control_only mode. (Derived from accessMode, so it is never on together with readOnly.) */
+  /** Only allowControl is on: call_service is limited to everyday devices. */
   controlOnly: boolean;
   // How long to wait for Home Assistant to answer before giving up.
   timeoutMs: number;
@@ -76,18 +81,6 @@ function bool(value: string | undefined, fallback: boolean): boolean {
   return ["1", "true", "yes", "on"].includes(v.toLowerCase());
 }
 
-// Reads the access level. Tidies up spelling ("Read only", "read-only", "CONTROL_ONLY") and
-// falls back to read_only for anything it does not recognise, because the safe answer to a
-// typo is the most restrictive mode. We say so on stderr so the typo is easy to spot.
-function accessMode(value: string | undefined): AccessMode {
-  const v = clean(value);
-  if (v === undefined) return "read_only";
-  const norm = v.toLowerCase().replace(/[\s-]+/g, "_");
-  if (norm === "read_only" || norm === "control_only" || norm === "full") return norm;
-  console.error(`[ha-mcp] Unknown access level "${v}". Use read_only, control_only or full. Falling back to read_only.`);
-  return "read_only";
-}
-
 // Reads a list setting. People separate items with commas or new lines, so we
 // accept both and trim away stray spaces and empty bits.
 function list(value: string | undefined): string[] {
@@ -121,6 +114,13 @@ export function sanitizeToken(raw: string): string {
   return t.replace(/\s+/g, "");
 }
 
+// A short, safe fingerprint of the token: the first 8 characters of its SHA-256 hash. It lets
+// someone check which token the server actually received (compare it with
+// `printf %s "$TOKEN" | shasum -a 256 | cut -c1-8`) without the token itself ever being shown.
+export function tokenFingerprint(token: string): string {
+  return createHash("sha256").update(token).digest("hex").slice(0, 8);
+}
+
 // Builds the Config from the environment. Takes the environment as a parameter
 // (defaulting to the real one) so that tests can pass in their own.
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
@@ -149,15 +149,19 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
 
   // Backups default to a hidden folder in the user's home directory.
   const backupDir = clean(env.HA_BACKUP_DIR) ?? path.join(os.homedir(), ".ha-mcp-server", "backups");
-  const mode = accessMode(env.HA_ACCESS_MODE);
+  const allowControl = bool(env.HA_ALLOW_CONTROL, false);
+  const allowEdit = bool(env.HA_ALLOW_EDIT, false);
+  const mode: AccessMode = allowControl && allowEdit ? "full" : allowControl ? "control_only" : allowEdit ? "edit_only" : "read_only";
   return {
     url,
     wsUrl,
     token,
     insecureTls: bool(env.HA_INSECURE_TLS, false),
-    // SAFE BY DEFAULT. Leaving HA_ACCESS_MODE out means read_only. The user has to opt in to
-    // control_only or full. One setting with three values replaces the old pair of switches,
-    // so "control only while read only" can no longer be expressed.
+    // SAFE BY DEFAULT. With neither switch set, the mode is read only and the user has to
+    // opt in to more. The Claude Desktop form can only show tick boxes (the MCPB format has
+    // no dropdown), so the access is two independent boxes rather than one choice.
+    allowControl,
+    allowEdit,
     accessMode: mode,
     readOnly: mode === "read_only",
     controlOnly: mode === "control_only",

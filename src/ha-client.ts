@@ -8,6 +8,7 @@
 import { fetch as undiciFetch, Agent } from "undici";
 import WebSocket from "ws";
 import type { Config } from "./config.js";
+import { tokenFingerprint } from "./config.js";
 
 // Our own error type. It carries the HTTP status and Home Assistant's error code
 // when we have them, which lets calling code make decisions (for example, treat a
@@ -192,7 +193,7 @@ export class HAWebSocket {
             // A bad token. We include the address and the token LENGTH (never the token) in the
             // message because a mismatched length is the most common clue: a real long-lived
             // token is very long, so a short one usually means a truncated paste.
-            fail(new HAError(`Home Assistant rejected the access token for ${this.cfg.url} (token length ${this.cfg.token.length}): ${msg.message ?? "auth_invalid"}`, 401));
+            fail(new HAError(`Home Assistant rejected the access token for ${this.cfg.url} (token length ${this.cfg.token.length}, fingerprint ${tokenFingerprint(this.cfg.token)}): ${msg.message ?? "auth_invalid"}`, 401));
           }
           return;
         }
@@ -394,7 +395,7 @@ export class HAClient {
         // A 401 almost always means a bad or mismatched token, so we add targeted advice to the message.
         const hint =
           res.status === 401
-            ? ` Home Assistant at ${this.cfg.url} rejected the token (token length ${this.cfg.token.length}, a real long-lived token is roughly 180 characters). Check that the token was created on THIS instance's profile page and was pasted in full.`
+            ? ` Home Assistant at ${this.cfg.url} rejected the token (token length ${this.cfg.token.length}, fingerprint ${tokenFingerprint(this.cfg.token)}, a real long-lived token is roughly 180 characters). Check that the token was created on THIS instance's profile page and was pasted in full.`
             : "";
         throw new HAError(
           `${method} ${path} failed with HTTP ${res.status}: ${String(message).slice(0, 500)}.${hint}`,

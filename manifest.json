@@ -27,7 +27,8 @@
       "env": {
         "HA_URL": "${user_config.ha_url}",
         "HA_TOKEN": "${user_config.ha_token}",
-        "HA_ACCESS_MODE": "${user_config.access_mode}",
+        "HA_ALLOW_CONTROL": "${user_config.allow_control}",
+        "HA_ALLOW_EDIT": "${user_config.allow_edit}",
         "HA_INSECURE_TLS": "${user_config.insecure_tls}",
         "HA_HIGH_RISK_ENTITIES": "${user_config.high_risk_entities}",
         "HA_NEVER_TOUCH": "${user_config.never_touch_entities}",
@@ -54,11 +55,18 @@
       "sensitive": true,
       "required": true
     },
-    "access_mode": {
-      "type": "string",
-      "title": "Access level",
-      "description": "What the assistant is allowed to do. Type one of: read_only (look at everything, change nothing), control_only (also switch lights, switches, fans, covers and media players, but cannot change automations, scripts, scenes, helpers, dashboards or settings), or full (everything, with approval for risky actions). Defaults to read_only. Anything else is treated as read_only.",
-      "default": "read_only",
+    "allow_control": {
+      "type": "boolean",
+      "title": "Allow controlling devices",
+      "description": "Off by default. Tick it to let the assistant operate devices: switch lights, plugs, fans, covers and media players on and off, and change things like volume, brightness, temperature targets of those devices or the track on a media player. It cannot change automations, scripts, scenes, helpers, dashboards or settings.",
+      "default": false,
+      "required": false
+    },
+    "allow_edit": {
+      "type": "boolean",
+      "title": "Allow editing setup",
+      "description": "Off by default. Tick it to let the assistant create, edit and delete automations, scripts, scenes, helpers, dashboards and settings, and restart Home Assistant, with approval for risky actions. On its own it cannot operate devices. Tick both this and Allow controlling devices for full access, which also covers locks, alarms and heating.",
+      "default": false,
       "required": false
     },
     "insecure_tls": {

@@ -17,7 +17,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { AuditLog } from "./audit.js";
 import { BackupStore } from "./backup.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, tokenFingerprint } from "./config.js";
 import { HAClient } from "./ha-client.js";
 import { registerAuditTools } from "./tools/audit.js";
 import { registerAutomationTools } from "./tools/automations.js";
@@ -87,7 +87,7 @@ async function main(): Promise<void> {
   // This line is a lifesaver when debugging. It shows which URL we are really
   // using and how long the token is (never the token itself). If you ever think
   // the extension is using an old address, the host's log will tell you.
-  console.error(`[ha-mcp] using HA_URL=${cfg.url} (websocket ${cfg.wsUrl}), token length ${cfg.token.length}`);
+  console.error(`[ha-mcp] using HA_URL=${cfg.url} (websocket ${cfg.wsUrl}), token length ${cfg.token.length}, fingerprint ${tokenFingerprint(cfg.token)}`);
 
   // Step 2: build the shared pieces.
   const ha = new HAClient(cfg);
@@ -101,7 +101,7 @@ async function main(): Promise<void> {
   // switched off and what the user would need to change to allow it. Tools that are not
   // registered cannot be "refused", so this is the only way the model can explain why.
   let instructions = INSTRUCTIONS;
-  if (cfg.toolsets.raw) instructions += `\n${cfg.readOnly || cfg.controlOnly ? RAW_NOTE_READ : RAW_NOTE_FULL}`;
+  if (cfg.toolsets.raw) instructions += `\n${cfg.accessMode === "full" ? RAW_NOTE_FULL : RAW_NOTE_READ}`;
   const status = statusNote(cfg);
   if (status) instructions += `\n${status}`;
   const server = new McpServer({ name: "home-assistant", version: version() }, { instructions });
@@ -134,7 +134,7 @@ async function main(): Promise<void> {
   await server.connect(transport);
 
   console.error(
-    `[ha-mcp] v${version()} ready with ${registeredToolNames.length} tools for ${cfg.url}${cfg.readOnly ? " (READ ONLY mode)" : cfg.controlOnly ? " (CONTROL ONLY mode)" : ""}`
+    `[ha-mcp] v${version()} ready with ${registeredToolNames.length} tools for ${cfg.url}${cfg.readOnly ? " (READ ONLY mode)" : cfg.accessMode === "control_only" ? " (CONTROL ONLY mode)" : cfg.accessMode === "edit_only" ? " (EDIT ONLY mode)" : ""}`
   );
 
   // Non blocking connectivity check so problems show up in the client logs immediately.

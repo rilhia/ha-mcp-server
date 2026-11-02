@@ -71,17 +71,27 @@ function auditArgs(args: Record<string, unknown>): unknown {
   return { _truncated: true, preview: text.slice(0, 2000) };
 }
 
-// The main function. Read the very first line carefully: if read only mode is on and
-// the tool is anything other than 'read', we return immediately and the tool never
-// exists. The model cannot call a tool it was never told about. That is why read
+// The main function. Read the first block carefully: if the access switches do not allow
+// a tool that can change something, we return immediately and the tool never exists. The model cannot call a tool it was never told about. That is why read
 // only mode is so reliable.
 /** Register a tool. In read-only mode every tool that can mutate Home Assistant is skipped. */
 export function registerTool<S extends z.ZodRawShape>(server: McpServer, ctx: ToolContext, def: ToolDef<S>): void {
-  if (ctx.cfg.readOnly && def.risk !== "read") return;
-  // Control only mode keeps the read tools and exactly one writing tool: call_service,
-  // which is itself restricted to everyday devices (see controlModeViolation in
-  // safety.ts). Everything else that could change a setting simply does not exist.
-  if (ctx.cfg.controlOnly && def.risk !== "read" && def.name !== "call_service") return;
+  // Anything that can change something has to be allowed by one of the two access switches,
+  // otherwise it is not registered and simply does not exist for the model.
+  //   call_service        needs allowControl (and is limited to everyday devices unless
+  //                       allowEdit is on as well, see controlModeViolation in safety.ts)
+  //   raw write tools     need BOTH, because they can send any service call
+  //   every other writer  needs allowEdit
+  if (def.risk !== "read") {
+    const both = ctx.cfg.allowControl && ctx.cfg.allowEdit;
+    if (def.name === "call_service") {
+      if (!ctx.cfg.allowControl) return;
+    } else if (def.name === "ha_rest_write" || def.name === "ha_ws_write") {
+      if (!both) return;
+    } else if (!ctx.cfg.allowEdit) {
+      return;
+    }
+  }
   registeredToolNames.push(def.name);
 
   // Risky tools get an extra optional 'plan_token' parameter added to their schema, so

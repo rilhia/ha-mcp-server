@@ -12,21 +12,22 @@ It works with any MCP client that can launch a local program over stdio. This gu
 
 1. [What it can do](#what-it-can-do)
 2. [Choose a mode first](#choose-a-mode-first)
-3. [Before you start](#before-you-start)
-4. [Set up in Claude Desktop](#set-up-in-claude-desktop)
-5. [Set up in LM Studio](#set-up-in-lm-studio)
-6. [Settings reference](#settings-reference)
-7. [How the settings work together](#how-the-settings-work-together)
-8. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default)
-9. [When something is not allowed](#when-something-is-not-allowed)
-10. [How to use it](#how-to-use-it)
-11. [The tools, one by one](#the-tools-one-by-one)
-12. [Safety model](#safety-model)
-13. [What has and has not been tested](#what-has-and-has-not-been-tested)
-14. [Build from source](#build-from-source)
-15. [Troubleshooting](#troubleshooting)
-16. [Project layout](#project-layout)
-17. [Licence](#licence)
+3. [The access settings in detail](#the-access-settings-in-detail)
+4. [Before you start](#before-you-start)
+5. [Set up in Claude Desktop](#set-up-in-claude-desktop)
+6. [Set up in LM Studio](#set-up-in-lm-studio)
+7. [Settings reference](#settings-reference)
+8. [How the settings work together](#how-the-settings-work-together)
+9. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default)
+10. [When something is not allowed](#when-something-is-not-allowed)
+11. [How to use it](#how-to-use-it)
+12. [The tools, one by one](#the-tools-one-by-one)
+13. [Safety model](#safety-model)
+14. [What has and has not been tested](#what-has-and-has-not-been-tested)
+15. [Build from source](#build-from-source)
+16. [Troubleshooting](#troubleshooting)
+17. [Project layout](#project-layout)
+18. [Licence](#licence)
 
 ## What it can do
 
@@ -58,10 +59,13 @@ Before you install anything, decide how much the assistant is allowed to do. The
 | Raw API write tools (only if switched on) | no | no | yes, with approval |
 | Tools available (default) | 42 | 43 | 68 |
 | Tools available with Raw API tools on | 44 | 45 | 72 |
-| `HA_ACCESS_MODE` | `"read_only"` (the default) | `"control_only"` | `"full"` |
-| In Claude Desktop, set **Access level** to | `read_only` (the default) | `control_only` | `full` |
+| `HA_ALLOW_CONTROL` | not set (the default) | `"true"` | `"true"` |
+| `HA_ALLOW_EDIT` | not set (the default) | not set | `"true"` |
+| In Claude Desktop, tick | nothing (the default) | **Allow controlling devices** | **both** Allow controlling devices and Allow editing setup |
 
-You pick the mode with **one setting**, so you cannot choose a contradictory combination. Spelling is forgiving (`Read Only` and `read-only` both work), but if the value is not recognised the server falls back to `read_only` and says so in its log. A typo can never open things up.
+There are two independent tick boxes, and both are off by default. **Allow controlling devices** lets Claude operate devices. **Allow editing setup** lets Claude change how Home Assistant is set up. Each one adds its own ability, so neither is redundant. Ticking both gives full access.
+
+There is also a fourth combination, ticking **Allow editing setup** on its own. See [Edit only](#edit-only-a-fourth-combination). For the full explanation of what each box allows, how it is enforced and how it interacts with the other settings, see [The access settings in detail](#the-access-settings-in-detail).
 
 **Start with Mode A, which is what you get if you change nothing.** Install it and explore for a while. Move to Mode B when you want it to switch things on and off. Use Mode C only when you need it to create or edit automations, scripts, scenes, dashboards or settings.
 
@@ -71,7 +75,8 @@ Every default is the most restrictive choice. You have to switch things to more 
 
 | Setting | Default | What opening it up means |
 | --- | --- | --- |
-| Access level (`HA_ACCESS_MODE`) | **`read_only`** | Change it to `control_only` for Mode B, or `full` for Mode C |
+| Allow controlling devices (`HA_ALLOW_CONTROL`) | **off** | Switch it on for Mode B. Switch it on together with the next one for Mode C |
+| Allow editing setup (`HA_ALLOW_EDIT`) | **off** | Switch it on together with the one above for Mode C, or on its own for edit only |
 | Require an approval prompt (`HA_REQUIRE_APPROVAL_PROMPT`) | **on** | Switch it off to use the preview and confirm steps instead of a human prompt |
 | Raw API tools (`HA_ENABLE_RAW`) | **off** | Switch it on to add the raw tools |
 | Supervisor tools (`HA_ENABLE_SUPERVISOR`) | **off** | Switch it on for add-on and host tools |
@@ -94,7 +99,11 @@ Calls that are allowed but risky, such as switching a washing machine plug or a 
 
 ### Mode C: Full
 
-Everything is available. Risky actions need the two step approval, described in [What happens when you ask for a change](#what-happens-when-you-ask-for-a-change). To get Mode C, set Access level to `full`.
+Everything is available. Risky actions need the two step approval, described in [What happens when you ask for a change](#what-happens-when-you-ask-for-a-change). To get Mode C, tick **both** Allow controlling devices and Allow editing setup (`HA_ALLOW_CONTROL` and `HA_ALLOW_EDIT`). With both ticked, `call_service` is no longer limited to everyday devices, so locks, alarms and heating are possible (with approval), and the raw write tools can appear if you have switched them on.
+
+### Edit only: a fourth combination
+
+Tick **Allow editing setup** on its own and Claude can create, edit and delete automations, scripts, scenes, helpers, dashboards and settings, and restart Home Assistant, with approval for risky actions. It cannot operate devices, because `call_service` is not registered, and the raw write tools stay off. That makes it handy for building automations without any risk of the assistant switching things. 67 tools (69 with the Raw API tools on). Scripts and automations that you or Claude create can still run and operate devices when you trigger them, so protect anything critical with the never touch list.
 
 ### A serious warning for LM Studio and other local models
 
@@ -109,6 +118,113 @@ If you use this with LM Studio or any local model:
 * Take a full Home Assistant backup first.
 * Leave the raw API tools off. They are off by default (`HA_ENABLE_RAW` is not set), and they are the most powerful and least guarded part. See [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default).
 * Never leave a write enabled model running unattended.
+
+## The access settings in detail
+
+Access is controlled by two tick boxes in Claude Desktop, and by two matching values in LM Studio and other clients. This is the most important part of the configuration, so this section explains it fully. Everything else in the settings reference works the same in every mode.
+
+### Why two tick boxes
+
+The Claude Desktop settings form can only show text boxes, number boxes and tick boxes. It has no drop down list, and the MCPB format used for the extension does not offer one. A single typed setting such as "read_only" or "full" would let people mistype it, so access is set with two tick boxes instead.
+
+Each box adds its own ability. Neither box is a more powerful version of the other, so ticking one never makes the other pointless. Both boxes are **off by default**, which is the most restrictive choice, and you have to open things up yourself.
+
+| Setting in the form | `env` name | Default | What it adds |
+| --- | --- | --- | --- |
+| **Allow controlling devices** | `HA_ALLOW_CONTROL` | off | Lets the assistant operate devices |
+| **Allow editing setup** | `HA_ALLOW_EDIT` | off | Lets the assistant change how Home Assistant is set up |
+
+### The four combinations
+
+| What the assistant can do | Neither box (Mode A) | Controlling only (Mode B) | Editing only | Both boxes (Mode C) |
+| --- | --- | --- | --- | --- |
+| Look at everything, history, logs, statistics | yes | yes | yes | yes |
+| Operate lights, plugs, fans, blinds, media players and helpers | no | **yes** | no | yes |
+| Operate locks, alarms, heating, scripts and notifications | no | no | no | yes, with approval |
+| Create, edit or delete automations, scripts, scenes and helpers | no | no | **yes**, with approval | yes, with approval |
+| Change dashboards, areas, labels, devices and integrations | no | no | **yes**, with approval | yes, with approval |
+| Restart or stop Home Assistant, restore a backup | no | no | **yes**, with approval | yes, with approval |
+| Raw API write tools (only if switched on) | no | no | no | yes, with approval |
+| Tools available | 42 | 43 | 67 | 68 |
+| Tools available with Raw API tools on | 44 | 45 | 69 | 72 |
+| `HA_ALLOW_CONTROL` | not set | `"true"` | not set | `"true"` |
+| `HA_ALLOW_EDIT` | not set | not set | `"true"` | `"true"` |
+
+Supervisor tools (off by default) add up to six more tools. Their read tools appear in every mode, and their write tools (add-on management and Home Assistant backups) need **Allow editing setup**.
+
+### How it is enforced
+
+Two layers work together, and the first one is the strongest.
+
+1. **Tools that are not allowed do not exist.** When the server starts, it only registers the tools your boxes allow. The assistant cannot call a tool it was never told about, so no amount of clever wording can bring it back. The only tool that operates devices is `call_service`. It exists only if **Allow controlling devices** is ticked. Every other tool that can change something exists only if **Allow editing setup** is ticked. The two raw write tools (`ha_rest_write` and `ha_ws_write`) can send any service call, so they need both boxes.
+2. **`call_service` is limited when only the controlling box is ticked.** In Mode B it checks every call against an allow list of everyday devices and refuses anything else, with no approval route. When both boxes are ticked, that list no longer applies and every call goes through the normal risk assessment and two step approval instead.
+
+### What Allow controlling devices permits
+
+On its own (Mode B) it allows `call_service` for these domains: `light`, `switch`, `fan`, `cover`, `media_player`, `humidifier`, `vacuum`, `remote`, `button`, `number`, `select`, `scene` (activating only), `input_boolean`, `input_button`, `input_number` and `input_select` (values only).
+
+That is far more than switching things on and off. It covers changing brightness and colour, setting a fan speed, opening and closing blinds, changing the volume or track on a media player, starting a vacuum and setting a helper's value.
+
+It does not permit:
+
+* Locks, alarm panels, climate (heating and cooling), water heaters, valves, scripts, automations, notifications or any other domain outside the list.
+* Services that change how something is set up, such as `reload`, `create`, `delete`, `apply`, `remove` and `set_options`, even inside an allowed domain.
+* Targeting by label. Name the entities, or use an area.
+* The generic `homeassistant.turn_on`, `turn_off` and `toggle`, except for named entities in the allowed domains.
+
+Calls that are allowed but risky, such as switching a washing machine plug or a whole area at once, still need the normal two step approval. The never touch list still applies.
+
+### What Allow editing setup permits
+
+It registers every tool that changes how Home Assistant is set up, always with the two step approval and, where possible, an automatic backup first:
+
+* Automations and scripts: `save_automation`, `delete_automation`, `reload_automations`, `save_script`, `delete_script` and `reload_scripts`.
+* Helpers: `create_helper`, `update_helper` and `delete_helper`.
+* Dashboards, registries, scenes, blueprints and integrations: `save_dashboard`, `save_dashboard_view`, `create_dashboard`, `delete_dashboard`, `delete_dashboard_config`, `manage_registry` (areas, floors, labels, devices, entities and zones), `save_scene`, `delete_scene`, `import_blueprint`, `delete_blueprint`, `manage_config_entry`, `run_config_flow` and `ignore_repair`. These come with the "Dashboards, registries, scenes, blueprints and integrations" setting, which is on by default. If you switch that group off, these tools disappear even with Allow editing setup ticked.
+* System: `restart_home_assistant`, `stop_home_assistant` and `restore_backup`.
+* Supervisor, only if you also switched on Supervisor tools: `create_ha_backup` and `manage_addon`.
+
+On its own, it does **not** register `call_service`. That makes **editing only** a useful fourth combination. Claude can help you build automations, scripts and dashboards, but it cannot switch a single device itself. Scripts and automations that you or Claude create can still operate devices when they run, so protect anything critical with the never touch list.
+
+### Both boxes ticked
+
+You get Mode C. `call_service` is no longer limited to everyday devices, so locks, alarms, heating and any other service are possible, but only through the normal safety checks: risk assessment, the never touch list and the two step approval. The raw write tools also become available, if you have switched on Raw API tools. Read [Turning on Mode C](#turning-on-mode-c-be-careful) before doing this.
+
+### How the access boxes interact with the other settings
+
+* **Never touch entities** and **Extra high risk entities** apply in every mode that can change something. They can only make things stricter. They never widen what a box allows.
+* **Require an approval prompt** (on by default) matters once a box is ticked. In Mode B it applies to risky but allowed calls. In the other modes it applies to every high risk action.
+* **Raw API tools** (off by default) add only the two read tools in every mode except Mode C. The two raw write tools appear only when both boxes are ticked.
+* **Dashboards, registries, scenes, blueprints and integrations** can remove tools that **Allow editing setup** would otherwise register.
+* **Insight tools** are all read tools, so they work the same in every mode.
+* **Supervisor tools** add their read tools in every mode, and their write tools only with **Allow editing setup**.
+
+### Which combination to choose
+
+* **Just exploring, or using a local model:** leave both boxes unticked (Mode A). This is the default.
+* **A basic user who wants lights, plugs, blinds and music controlled:** tick **Allow controlling devices** only (Mode B), and fill in **Never touch entities** with your locks, alarms and garage doors.
+* **Building automations, scripts or dashboards with no risk of devices being switched:** tick **Allow editing setup** only.
+* **Full access for a short, specific job:** tick both. Take a Home Assistant backup first, and untick one or both when you are done.
+
+### Changing the access settings
+
+In Claude Desktop, open Settings, then Extensions, then the Home Assistant extension and click Configure. Tick or untick the two boxes and save. Then quit Claude Desktop completely and reopen it, and **start a new chat**. See [Changing settings later](#changing-settings-later) for why. The settings are only read when the server starts.
+
+In LM Studio or another client, edit the `env` block of `mcp.json`. Only add a line to turn a box on, and take the line out (or set it to `"false"`) to turn it off. Values are strings in double quotes. Then switch the server off and on again.
+
+```json
+"env": {
+  "HA_URL": "http://192.168.1.50:8123",
+  "HA_TOKEN": "your_token",
+  "HA_ALLOW_CONTROL": "true"
+}
+```
+
+That example is Mode B. For Mode C add `"HA_ALLOW_EDIT": "true"` as well. For editing only, use `HA_ALLOW_EDIT` on its own. After every change, count the tools in your client. You should see 42, 43, 67 or 68 (add 2 if the Raw API tools are on, or 4 for Mode C).
+
+### What the assistant says when something is not allowed
+
+Tools that do not exist cannot be refused, so the server briefs the assistant when it connects. It states which mode is on and which boxes would change that, naming both the Claude Desktop label and the LM Studio setting. For example, ask for a new automation in Mode B and the assistant should tell you that Allow editing setup is off, and that you can tick it, and that doing so together with Allow controlling devices gives full access. It also reminds you to take a backup first, and that it cannot change settings itself. See [When something is not allowed](#when-something-is-not-allowed).
 
 ## Before you start
 
@@ -141,26 +257,27 @@ Claude Desktop reads the `.mcpb` file for you, so there is nothing to unpack.
 
 ### Step 2: Fill in the settings form
 
-The form has 12 settings. Only the first two are required. Every setting is explained in the [Settings reference](#settings-reference), and the numbers below match the numbers there.
+The form has 13 settings. Only the first two are required. Every setting is explained in the [Settings reference](#settings-reference), and the numbers below match the numbers there.
 
 | # | Setting in the form | Mode A: Read only | Mode B: Control only | Mode C: Full |
 | --- | --- | --- | --- | --- |
 | 1 | Home Assistant URL | your address | your address | your address |
 | 2 | Long-lived access token | your token | your token | your token |
-| 3 | Access level | leave as `read_only` (default) | type `control_only` | type `full` |
-| 4 | Allow self signed certificates | only if needed | only if needed | only if needed |
-| 5 | Extra high risk entities | optional | optional | optional |
-| 6 | Never touch entities | optional | **fill in** | **fill in** |
-| 7 | Require an approval prompt for high risk actions | leave on | leave on | leave on, see below |
-| 8 | Dashboards, registries, scenes, blueprints and integrations | leave on | leave on | leave on |
-| 9 | Insight tools | leave on | leave on | leave on |
-| 10 | Raw API tools | leave off | leave off | leave off |
-| 11 | Supervisor tools | leave off | leave off | leave off |
-| 12 | Entities expected to be unavailable | optional | optional | optional |
+| 3 | Allow controlling devices | leave unticked (default) | **tick** | **tick** |
+| 4 | Allow editing setup | leave unticked (default) | leave unticked | **tick** |
+| 5 | Allow self signed certificates | only if needed | only if needed | only if needed |
+| 6 | Extra high risk entities | optional | optional | optional |
+| 7 | Never touch entities | optional | **fill in** | **fill in** |
+| 8 | Require an approval prompt for high risk actions | leave on | leave on | leave on, see below |
+| 9 | Dashboards, registries, scenes, blueprints and integrations | leave on | leave on | leave on |
+| 10 | Insight tools | leave on | leave on | leave on |
+| 11 | Raw API tools | leave off | leave off | leave off |
+| 12 | Supervisor tools | leave off | leave off | leave off |
+| 13 | Entities expected to be unavailable | optional | optional | optional |
 
 Notes on the table:
 
-* **Access level is `read_only` by default.** If you change nothing, you get Mode A. The form has no drop down list, so for Mode B type `control_only`, and for Mode C type `full`. Anything the server does not recognise is treated as `read_only`.
+* **Both access boxes are unticked by default.** If you change nothing, you get Mode A. Claude Desktop forms can only show tick boxes (there is no drop down list), so access is two independent boxes. Tick **Allow controlling devices** for Mode B, or tick **both** boxes for Mode C. Ticking only Allow editing setup gives [edit only](#edit-only-a-fourth-combination).
 * **Require an approval prompt is on by default.** If a risky action is refused because Claude cannot show a prompt, you can untick it, but then the preview and confirm steps are the only check.
 * **Never touch entities** is where you list your locks, alarms, garage doors and gates, for example `lock.*, alarm_control_panel.*, cover.garage_*, cover.gate_*`.
 * **Supervisor tools** only work on Home Assistant OS or Supervised. Leave them off for Docker or Core installs.
@@ -173,7 +290,12 @@ Notes on the table:
 
 ### Changing settings later
 
-Open Claude Desktop, go to Settings, then Extensions, choose **Home Assistant (full control)** and open its settings (the button is usually labelled **Configure**). Change what you need, save, and restart the extension (or Claude Desktop) if it does not restart itself. Mode changes only take effect when the server restarts.
+Open Claude Desktop, go to Settings, then Extensions, choose **Home Assistant (full control)** and open its settings (the button is usually labelled **Configure**). Change what you need and save. Then:
+
+1. **Quit Claude Desktop completely and reopen it.** Closing the window is not enough, so use Quit (Cmd+Q on a Mac). The settings are handed to the server when it starts, and saving the form does not always restart it, so the old values can stay in use until the app is restarted.
+2. **Start a new chat.** An existing chat keeps the tools and instructions it was given when it began. That is how MCP works. The list of tools, and the briefing that tells the assistant which mode is on, are fixed for the life of a chat. An old chat can therefore keep behaving as it did under the old settings even after the server has changed. Chats started after the restart use the new settings.
+
+You can check the new settings took effect by counting the tools in a new chat: 42, 43, 67 or 68 (add 2 if the Raw API tools are on, or 4 for Mode C).
 
 ## Set up in LM Studio
 
@@ -278,7 +400,7 @@ macOS and Linux:
 
 ```bash
 cd ~/mcp-servers/home-assistant
-HA_URL="http://192.168.1.50:8123" HA_TOKEN="paste_token_here" HA_ACCESS_MODE="read_only" node dist/index.js
+HA_URL="http://192.168.1.50:8123" HA_TOKEN="paste_token_here" node dist/index.js
 ```
 
 Windows PowerShell:
@@ -287,7 +409,6 @@ Windows PowerShell:
 cd C:\mcp-servers\home-assistant
 $env:HA_URL="http://192.168.1.50:8123"
 $env:HA_TOKEN="paste_token_here"
-$env:HA_ACCESS_MODE="read_only"
 node dist/index.js
 ```
 
@@ -320,9 +441,9 @@ A fresh file contains `{ "mcpServers": {} }`.
 
 ### Step 7: Add the server for your chosen mode
 
-Put an entry for the server inside `mcpServers`. Use the example for the mode you chose. The three examples differ only in the `HA_ACCESS_MODE` and `HA_REQUIRE_APPROVAL_PROMPT` lines. Every setting you leave out gets its safe default, so a config with no `HA_ACCESS_MODE` line at all is Mode A. Replace the paths, address and token with your own.
+Put an entry for the server inside `mcpServers`. Use the example for the mode you chose. The three examples differ only in the `HA_ALLOW_CONTROL`, `HA_ALLOW_EDIT` and `HA_REQUIRE_APPROVAL_PROMPT` lines. Every setting you leave out gets its safe default, so a config with neither `HA_ALLOW_CONTROL` nor `HA_ALLOW_EDIT` is Mode A. Replace the paths, address and token with your own.
 
-**Mode A: Read only (start here).** 42 tools.
+**Mode A: Read only (start here).** 42 tools. Notice there is no `HA_ALLOW_CONTROL` or `HA_ALLOW_EDIT` line. Leaving both out is what makes it read only.
 
 ```json
 {
@@ -333,7 +454,6 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
-        "HA_ACCESS_MODE": "read_only",
         "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
         "HA_ENABLE_RAW": "false"
       }
@@ -342,7 +462,7 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 }
 ```
 
-**Mode B: Control only (everyday use).** 43 tools. Compared with Mode A, `HA_ACCESS_MODE` becomes `"control_only"`.
+**Mode B: Control only (everyday use).** 43 tools. Compared with Mode A, `HA_ALLOW_CONTROL` is added and set to `"true"`.
 
 ```json
 {
@@ -353,7 +473,7 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
-        "HA_ACCESS_MODE": "control_only",
+        "HA_ALLOW_CONTROL": "true",
         "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
         "HA_ENABLE_RAW": "false"
       }
@@ -362,7 +482,7 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 }
 ```
 
-**Mode C: Full (rarely, with care).** 68 tools. Compared with Mode A, `HA_ACCESS_MODE` becomes `"full"`, and you will normally also need `HA_REQUIRE_APPROVAL_PROMPT` set to `"false"` (see [Turning on Mode C](#turning-on-mode-c-be-careful)). Read [Turning on Mode C](#turning-on-mode-c-be-careful) before using it.
+**Mode C: Full (rarely, with care).** 68 tools. Compared with Mode A, both `HA_ALLOW_CONTROL` and `HA_ALLOW_EDIT` are added and set to `"true"`, and you will normally also need `HA_REQUIRE_APPROVAL_PROMPT` set to `"false"` (see [Turning on Mode C](#turning-on-mode-c-be-careful)). Read [Turning on Mode C](#turning-on-mode-c-be-careful) before using it.
 
 ```json
 {
@@ -373,7 +493,8 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
-        "HA_ACCESS_MODE": "full",
+        "HA_ALLOW_CONTROL": "true",
+        "HA_ALLOW_EDIT": "true",
         "HA_REQUIRE_APPROVAL_PROMPT": "false",
         "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
         "HA_ENABLE_RAW": "false"
@@ -394,7 +515,7 @@ If the file already has other servers in it, add `"home-assistant": { ... }` alo
 
 **Rules for the JSON file.** JSON is strict, and one mistake stops the whole file loading.
 
-* **Every value is a string in double quotes**, including the true and false ones. Write `"HA_ACCESS_MODE": "read_only"`, and write on and off values as `"true"` or `"false"`, never `true` or `false` without the quotes.
+* **Every value is a string in double quotes**, including the true and false ones. Write `"HA_ALLOW_CONTROL": "true"`, never `true` without the quotes.
 * No comments, and no comma after the last item in a block.
 * Use straight quotes `"`, not curly quotes from a word processor.
 * Lists, such as `HA_NEVER_TOUCH`, are **one string with the items separated by commas**. Do not use a JSON array.
@@ -408,7 +529,7 @@ All the other settings you can add to `env` are in the [Settings reference](#set
 1. Save the file (Cmd+S or Ctrl+S).
 2. LM Studio reloads its MCP servers. In the Program tab you should see `home-assistant` with a toggle.
 3. Switch the toggle on for the chat you want to use it in.
-4. Click the server to see its tools, and **count them**: 42 for Mode A, 43 for Mode B, 68 for Mode C (if you have turned the raw tools on, add 2 for Mode A or B, or 4 for Mode C). If the number is not what you expected, stop and check your `HA_ACCESS_MODE` line.
+4. Click the server to see its tools, and **count them**: 42 for Mode A, 43 for Mode B, 68 for Mode C (if you have turned the raw tools on, add 2 for Mode A or B, or 4 for Mode C). If the number is not what you expected, stop and check your `HA_ALLOW_CONTROL` and `HA_ALLOW_EDIT` lines.
 5. Choose a model that supports **tool use** (LM Studio marks these with a hammer icon).
 
 ### Step 9: Try it
@@ -419,7 +540,7 @@ All the other settings you can add to `env` are in the [Settings reference](#set
 
 ### Switching between modes later
 
-Edit `mcp.json`, change the `HA_ACCESS_MODE` line, save, then switch the server off and on again in the Program tab. The mode is only read when the server starts. After every change, count the tools again (42, 43 or 68).
+Edit `mcp.json`, add, remove or change the `HA_ALLOW_CONTROL` and `HA_ALLOW_EDIT` lines, save, then switch the server off and on again in the Program tab. The mode is only read when the server starts. After every change, count the tools again (42, 43 or 68).
 
 ### Turning on Mode C (be careful)
 
@@ -428,7 +549,7 @@ For everyday switching, use Mode B. Only go further if you really need the model
 1. Take a full Home Assistant backup first (Settings, System, Backups).
 2. Fill in `HA_NEVER_TOUCH` with every lock, alarm, garage door, gate, oven, heater or anything else you could not bear to have changed.
 3. Leave `HA_ENABLE_RAW` off (its default).
-4. Set `HA_ACCESS_MODE` to `"full"`. Save, then switch the server off and on in the Program tab.
+4. Add both `"HA_ALLOW_CONTROL": "true"` and `"HA_ALLOW_EDIT": "true"`. Save, then switch the server off and on in the Program tab.
 5. Check the tool count has gone up to 68, then try one harmless thing, such as turning a single lamp on and off.
 6. Understand the approval prompt. `HA_REQUIRE_APPROVAL_PROMPT` is on by default, and LM Studio may not be able to show a prompt, in which case every high risk action (deleting, overwriting, locks and so on) is refused. To use Mode C in LM Studio you would set it to `"false"`. That means the only check left is the preview and confirm step that the model performs itself, so you must read every plan the model shows you before agreeing, and never let a local model approve its own plans.
 7. When the job is done, go back to Mode A or B.
@@ -454,7 +575,6 @@ This is for reference. It is **not** a recommended setup, since several values a
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
-        "HA_ACCESS_MODE": "read_only",
         "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
         "HA_HIGH_RISK_ENTITIES": "switch.workshop_*",
         "HA_HIGH_RISK_DOMAINS": "vacuum",
@@ -490,10 +610,10 @@ This is for reference. It is **not** a recommended setup, since several values a
 | The server will not start, or `spawn node ENOENT` | `command` is wrong. Use the full path to Node from `which node`. |
 | `Cannot find module` and a path | The `args` path is wrong. Check that `dist/index.js` really exists at that path. |
 | `configuration error: HA_URL is not set` | The `env` block is missing or misspelled. |
-| `401 Unauthorized` | Token is wrong, was deleted, or came from a different Home Assistant. Make a new one. |
+| `401 Unauthorized` | Token is wrong, was deleted, or came from a different Home Assistant. Make a new one. The error shows the token length (about 180 is normal) and a fingerprint so you can check what the server really received. See Troubleshooting. |
 | `Cannot reach Home Assistant` | Wrong address or port, or a firewall. Test the address in a browser. |
 | The file will not save, or shows red marks | A JSON mistake such as a missing comma, a curly quote, or a trailing comma. |
-| The tool count is not what you expected (42, 43 or 68) | Check `HA_ACCESS_MODE`. If you left it out, or the value has a typo, you get Mode A (42 tools). |
+| The tool count is not what you expected (42, 43, 67 or 68) | Check `HA_ALLOW_CONTROL` and `HA_ALLOW_EDIT`. Neither set gives Mode A (42 tools), control only gives 43, edit only gives 67, and both give 68. |
 | The model ignores the tools or answers wildly | The model does not support tool use well. Try a larger model or fewer tools. |
 
 Other MCP clients (Cursor, Cline, Continue and so on) use the same idea: a `command` of `node` (preferably the full path), an `args` entry that points at `dist/index.js`, and the settings as `env` values.
@@ -512,16 +632,17 @@ Notes for the `env` names:
 | --- | --- | --- | --- | --- |
 | 1 | Home Assistant URL | `HA_URL` | none, **required** | Your Home Assistant address, with the port. |
 | 2 | Long-lived access token | `HA_TOKEN` | none, **required** | The token you created in Home Assistant. |
-| 3 | Access level | `HA_ACCESS_MODE` | **`read_only`** | Picks the mode: `read_only` (Mode A), `control_only` (Mode B) or `full` (Mode C). See below. |
-| 4 | Allow self signed certificates | `HA_INSECURE_TLS` | off | Skips certificate checks. Only for an `https://` address with a self-signed certificate. |
-| 5 | Extra high risk entities | `HA_HIGH_RISK_ENTITIES` | empty | Entities that always need the two step approval. |
-| 6 | Never touch entities | `HA_NEVER_TOUCH` | empty | Entities that can never be changed, even with approval. |
-| 7 | Require an approval prompt for high risk actions | `HA_REQUIRE_APPROVAL_PROMPT` | **on** | A human approval prompt becomes mandatory for risky actions. |
-| 8 | Dashboards, registries, scenes, blueprints and integrations | `HA_ENABLE_CONFIG` | on | The config tool group. |
-| 9 | Insight tools | `HA_ENABLE_INSIGHTS` | on | The insight tool group. |
-| 10 | Raw API tools | `HA_ENABLE_RAW` | **off** | The four raw API tools. See [Raw API tools](#raw-api-tools-what-they-do-and-why-they-are-off-by-default). |
-| 11 | Supervisor tools | `HA_ENABLE_SUPERVISOR` | off | The add-on and host tools. |
-| 12 | Entities expected to be unavailable | `HA_IGNORE_UNAVAILABLE` | empty | Entities that problem checks should not report. |
+| 3 | Allow controlling devices | `HA_ALLOW_CONTROL` | **off** | Lets the assistant operate devices. On its own it is Mode B (everyday devices only). With the next box it is Mode C. |
+| 4 | Allow editing setup | `HA_ALLOW_EDIT` | **off** | Lets the assistant change automations, scripts, scenes, helpers, dashboards and settings. On its own it is edit only. With the box above it is Mode C. |
+| 5 | Allow self signed certificates | `HA_INSECURE_TLS` | off | Skips certificate checks. Only for an `https://` address with a self-signed certificate. |
+| 6 | Extra high risk entities | `HA_HIGH_RISK_ENTITIES` | empty | Entities that always need the two step approval. |
+| 7 | Never touch entities | `HA_NEVER_TOUCH` | empty | Entities that can never be changed, even with approval. |
+| 8 | Require an approval prompt for high risk actions | `HA_REQUIRE_APPROVAL_PROMPT` | **on** | A human approval prompt becomes mandatory for risky actions. |
+| 9 | Dashboards, registries, scenes, blueprints and integrations | `HA_ENABLE_CONFIG` | on | The config tool group. |
+| 10 | Insight tools | `HA_ENABLE_INSIGHTS` | on | The insight tool group. |
+| 11 | Raw API tools | `HA_ENABLE_RAW` | **off** | The four raw API tools. See [Raw API tools](#raw-api-tools-what-they-do-and-why-they-are-off-by-default). |
+| 12 | Supervisor tools | `HA_ENABLE_SUPERVISOR` | off | The add-on and host tools. |
+| 13 | Entities expected to be unavailable | `HA_IGNORE_UNAVAILABLE` | empty | Entities that problem checks should not report. |
 | | *not in the form* | `HA_HIGH_RISK_DOMAINS` | empty | Extra service domains to treat as high risk, for example `"vacuum,media_player"`. |
 | | *not in the form* | `HA_BACKUP_DIR` | `~/.ha-mcp-server/backups` | Where rollback copies are saved. |
 | | *not in the form* | `HA_AUDIT_LOG` | `audit.jsonl` beside the backups folder | Where the audit log is written. |
@@ -534,31 +655,27 @@ Notes for the `env` names:
 
 **2. Long-lived access token (required).** In Home Assistant, click your name at the bottom left to open your profile, open the **Security** tab, scroll to the bottom and click **Create token**. Give it a name such as `Claude MCP`, and copy it straight away because Home Assistant only shows it once. Claude Desktop stores it in your operating system keychain, not in a plain file. Quotes, a pasted `Bearer ` prefix and stray spaces or line breaks are removed for you. Make a token just for this extension so you can revoke it separately.
 
-**3. Access level.** One setting that decides how much Claude is allowed to do. It is typed text, because the Claude Desktop form has no drop down list. Use one of these three values:
+**3. Allow controlling devices.** **Off by default.** Lets Claude operate devices, not only switch them on and off: change brightness, colour, volume, the track on a media player, a thermostat target, open or close blinds and so on. On its own this is Mode B, and it is limited to everyday devices (lights, plugs, fans, blinds, media players, helpers and similar). It cannot change automations, scripts, scenes, helpers, dashboards or settings, and cannot control locks, alarms or heating. 43 tools are available (45 with the Raw API tools on). With both boxes unticked you get Mode A: only tools that cannot change anything, so 42 tools (44 with the Raw API tools on).
 
-* `read_only` (Mode A, the **default**). Only tools that cannot change anything are available. Claude can look at everything but cannot change a thing. 42 tools (44 with the Raw API tools on).
-* `control_only` (Mode B). For everyday use. Claude can read everything and switch lights, plugs, fans, blinds, media players and similar devices, but cannot change automations, scripts, scenes, helpers, dashboards or settings, and cannot control locks, alarms or heating. 43 tools (45 with the Raw API tools on).
-* `full` (Mode C). Everything is available, with approval for risky actions. 68 tools (72 with the Raw API tools on).
+**4. Allow editing setup.** **Off by default.** Lets Claude create, edit and delete automations, scripts, scenes, helpers, dashboards, areas, labels, devices and integrations, and restart Home Assistant, with approval for risky actions. On its own it is edit only (67 tools, 69 with the Raw API tools on) and Claude still cannot operate devices. Ticked together with Allow controlling devices it gives Mode C, full access, with 68 tools (72 with the Raw API tools on). In that case `call_service` is no longer limited to everyday devices. Read [Turning on Mode C](#turning-on-mode-c-be-careful) before using it.
 
-Capitals, spaces and hyphens do not matter, so `Read Only` and `control-only` work. A value the server does not recognise, including a typo, is treated as `read_only` and a warning is written to the server log. This is deliberate: a mistake can only make things more restrictive, never less.
+**5. Allow self signed certificates.** Skips certificate checking. Only needed if your Home Assistant address starts with `https://` and uses a self-signed certificate, and only on a network you trust. Leave it off for plain `http://` addresses, where it does nothing.
 
-**4. Allow self signed certificates.** Skips certificate checking. Only needed if your Home Assistant address starts with `https://` and uses a self-signed certificate, and only on a network you trust. Leave it off for plain `http://` addresses, where it does nothing.
+**6. Extra high risk entities.** A comma separated list of entity id patterns that should **always need approval** before being changed, for example `switch.workshop_*, light.pool_pump`. A `*` matches anything. Case does not matter. This adds to the built in rules (locks, alarms, heating, garage doors and so on) and never loosens them.
 
-**5. Extra high risk entities.** A comma separated list of entity id patterns that should **always need approval** before being changed, for example `switch.workshop_*, light.pool_pump`. A `*` matches anything. Case does not matter. This adds to the built in rules (locks, alarms, heating, garage doors and so on) and never loosens them.
+**7. Never touch entities.** A comma separated list of entity id patterns that this server must **never change, even with approval**, for example `lock.front_door, alarm_control_panel.*, cover.garage_*`. This also covers entities reached through an area or device, and automations that reference them cannot be saved. It is the best protection for anything you could not bear to have changed, so use it, especially for garage doors and gates in control only mode.
 
-**6. Never touch entities.** A comma separated list of entity id patterns that this server must **never change, even with approval**, for example `lock.front_door, alarm_control_panel.*, cover.garage_*`. This also covers entities reached through an area or device, and automations that reference them cannot be saved. It is the best protection for anything you could not bear to have changed, so use it, especially for garage doors and gates in control only mode.
+**8. Require an approval prompt for high risk actions.** **On by default.** A high risk action only runs if the client can show you an approval prompt and you accept it. A client that cannot show prompts is refused, and the assistant is told which setting to change. This only matters once you are in Mode B (for risky but allowed calls) or Mode C. If a client cannot show prompts, such as LM Studio may be, you can switch this off, but then the preview and confirm steps are the only check, and a model performs those itself. Only do that if you accept that.
 
-**7. Require an approval prompt for high risk actions.** **On by default.** A high risk action only runs if the client can show you an approval prompt and you accept it. A client that cannot show prompts is refused, and the assistant is told which setting to change. This only matters once you are in Mode B (for risky but allowed calls) or Mode C. If a client cannot show prompts, such as LM Studio may be, you can switch this off, but then the preview and confirm steps are the only check, and a model performs those itself. Only do that if you accept that.
+**9. Dashboards, registries, scenes, blueprints and integrations.** On by default. Tools to manage dashboards, areas, floors, labels, devices, entities, zones, scenes, blueprints, integrations and repairs. Switch it off to give Claude fewer tools. The read tools in this group go with it.
 
-**8. Dashboards, registries, scenes, blueprints and integrations.** On by default. Tools to manage dashboards, areas, floors, labels, devices, entities, zones, scenes, blueprints, integrations and repairs. Switch it off to give Claude fewer tools. The read tools in this group go with it.
+**10. Insight tools.** On by default. The home overview, problem finder, state change explainer, statistics, calendar, to-do list, forecast, camera snapshot, wait for state and system log tools. All of them are read tools.
 
-**9. Insight tools.** On by default. The home overview, problem finder, state change explainer, statistics, calendar, to-do list, forecast, camera snapshot, wait for state and system log tools. All of them are read tools.
+**11. Raw API tools.** **Off by default.** Four generic tools that can send any request to Home Assistant's REST or WebSocket API, for anything the other tools do not cover. Writes through them still need the two step approval, but they are the most powerful and least guarded tools here, and they have no automatic backup. Only turn them on if you have a specific need. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) explains this in full.
 
-**10. Raw API tools.** **Off by default.** Four generic tools that can send any request to Home Assistant's REST or WebSocket API, for anything the other tools do not cover. Writes through them still need the two step approval, but they are the most powerful and least guarded tools here, and they have no automatic backup. Only turn them on if you have a specific need. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) explains this in full.
+**12. Supervisor tools.** Off by default. Add-ons, Home Assistant backups and host information. They **only work on Home Assistant OS or Supervised installs**. On Docker or Core installs there is no Supervisor, so leave this off.
 
-**11. Supervisor tools.** Off by default. Add-ons, Home Assistant backups and host information. They **only work on Home Assistant OS or Supervised installs**. On Docker or Core installs there is no Supervisor, so leave this off.
-
-**12. Entities expected to be unavailable.** A comma separated list of entity id patterns that the problem finder and the home overview should **not** report as unavailable, for example `light.*, switch.garage_*`. Useful if you have devices that are often switched off at the wall. It only affects reporting, not what Claude can do.
+**13. Entities expected to be unavailable.** A comma separated list of entity id patterns that the problem finder and the home overview should **not** report as unavailable, for example `light.*, switch.garage_*`. Useful if you have devices that are often switched off at the wall. It only affects reporting, not what Claude can do.
 
 ## How the settings work together
 
@@ -566,26 +683,27 @@ Two things are decided, in this order. First, **which tools exist** when the ser
 
 ### 1. Which tools exist
 
-| `HA_ACCESS_MODE` | Result | Tools |
-| --- | --- | --- |
-| `read_only`, or not set | Mode A. Read tools only. | 42 |
-| `control_only` | Mode B. Read tools plus `call_service` limited to everyday devices. | 43 |
-| `full` | Mode C. Everything. | 68 |
+| `HA_ALLOW_CONTROL` | `HA_ALLOW_EDIT` | Result | Tools |
+| --- | --- | --- | --- |
+| not set or `"false"` | not set or `"false"` | Mode A. Read tools only. | 42 |
+| `"true"` | not set or `"false"` | Mode B. Read tools plus `call_service` limited to everyday devices. | 43 |
+| not set or `"false"` | `"true"` | Edit only. Read tools plus every setup editing tool, no `call_service`, no raw write tools. | 67 |
+| `"true"` | `"true"` | Mode C. Everything, and `call_service` is no longer limited. | 68 |
 
-There is only one setting for this, so the modes cannot contradict each other. Leaving it out, or mistyping it, gives Mode A. It is still good practice to set the mode you want explicitly, so the config says what you meant.
+Each box adds its own ability and both are off by default, so leaving everything out gives Mode A. It is still good practice to set what you want explicitly, so the config says what you meant. The raw write tools (only if `HA_ENABLE_RAW` is on) appear only when both boxes are on, because they can send any service call.
 
 The `HA_ENABLE_*` switches then remove whole groups of tools from whichever list you ended up with.
 
-* `HA_ENABLE_RAW=true` adds the raw API tools, which are off by default. In the two restricted modes only the two raw read tools appear.
+* `HA_ENABLE_RAW=true` adds the raw API tools, which are off by default. The raw write tools need both access boxes, so in every other mode only the two raw read tools appear.
 * `HA_ENABLE_CONFIG=false` removes dashboards, registries, scenes, blueprints and integrations.
 * `HA_ENABLE_INSIGHTS=false` removes the overview, problem finder, statistics and similar tools.
 * `HA_ENABLE_SUPERVISOR=true` adds the add-on and host tools. In the restricted modes only their read tools appear.
 
-None of the `HA_ENABLE_*` switches can bring a writing tool back in `read_only` or `control_only` mode.
+None of the `HA_ENABLE_*` switches can bring a writing tool back in read only or control only mode.
 
 ### 2. What happens when `call_service` is used
 
-This applies in `control_only` and `full` modes. Each call goes through these checks in order, and the first one that says no stops it.
+This applies in control only and full modes. Each call goes through these checks in order, and the first one that says no stops it.
 
 1. **Does the service exist, with all its required fields?** If not, an error comes back.
 2. **Control only allow list** (control only mode only). Anything outside the everyday device domains is refused outright. There is no way to confirm past this.
@@ -597,17 +715,17 @@ This applies in `control_only` and `full` modes. Each call goes through these ch
 
 | Settings | Switch the kitchen light | Switch a washing machine plug | Unlock a door | Edit an automation |
 | --- | --- | --- | --- | --- |
-| nothing set, or `HA_ACCESS_MODE=read_only` (Mode A) | no tool | no tool | no tool | no tool |
-| `HA_ACCESS_MODE=control_only` (Mode B, with the default approval prompt) | runs | refused unless the client can show a prompt | refused (not allowed) | no tool |
-| `HA_ACCESS_MODE=control_only` and `HA_REQUIRE_APPROVAL_PROMPT=false` (Mode B) | runs | needs the preview and confirm steps | refused (not allowed) | no tool |
-| `HA_ACCESS_MODE=full` (Mode C), `HA_NEVER_TOUCH=lock.*` | runs | needs approval | refused (never touch) | needs approval |
-| `HA_ACCESS_MODE=full` (Mode C), nothing else set | runs | needs approval | needs approval | needs approval |
+| nothing set (Mode A) | no tool | no tool | no tool | no tool |
+| `HA_ALLOW_CONTROL=true` (Mode B, with the default approval prompt) | runs | refused unless the client can show a prompt | refused (not allowed) | no tool |
+| `HA_ALLOW_CONTROL=true` and `HA_REQUIRE_APPROVAL_PROMPT=false` (Mode B) | runs | needs the preview and confirm steps | refused (not allowed) | no tool |
+| `HA_ALLOW_CONTROL=true` and `HA_ALLOW_EDIT=true` (Mode C), `HA_NEVER_TOUCH=lock.*` | runs | needs approval | refused (never touch) | needs approval |
+| `HA_ALLOW_CONTROL=true` and `HA_ALLOW_EDIT=true` (Mode C), nothing else set | runs | needs approval | needs approval | needs approval |
 
 ### Which settings to use
 
 * **Just exploring (Mode A):** change nothing. This is the default.
-* **Everyday switching for a basic user (Mode B):** `HA_ACCESS_MODE=control_only`, and `HA_NEVER_TOUCH` listing your locks, alarms, garage doors and gates. Control only mode does not exclude covers, so the garage door and gates are protected by the approval step and by the never touch list.
-* **Building and editing automations, scripts and dashboards (Mode C):** `HA_ACCESS_MODE=full`. Do this deliberately, for a short job, and preferably with Claude rather than a local model.
+* **Everyday switching for a basic user (Mode B):** `HA_ALLOW_CONTROL=true`, and `HA_NEVER_TOUCH` listing your locks, alarms, garage doors and gates. Control only mode does not exclude covers, so the garage door and gates are protected by the approval step and by the never touch list.
+* **Building and editing automations, scripts and dashboards (Mode C):** `HA_ALLOW_CONTROL=true` and `HA_ALLOW_EDIT=true`. Do this deliberately, for a short job, and preferably with Claude rather than a local model.
 * **LM Studio or any local model:** the approval prompt is on by default. If your client cannot show prompts, every risky call is refused. That is safe, but it can look like the server is broken. Switch it off only if you accept that the model's own preview and confirm step is then the only check.
 * Settings such as `HA_URL`, `HA_TOKEN`, `HA_TIMEOUT_MS` and `HA_MAX_OUTPUT_CHARS` do not interact with any of the above.
 
@@ -658,18 +776,18 @@ Home Assistant can be asked things in two ways, which is why there are four tool
 
 ## When something is not allowed
 
-If you ask the assistant for something your settings do not allow, it should tell you **why** and **which setting to change**, not just say it cannot. For example, ask for a new automation in Mode A and you should hear that the access level is `read_only`, and that you can change it to `control_only` (switching devices only) or `full`.
+If you ask the assistant for something your settings do not allow, it should tell you **why** and **which setting to change**, not just say it cannot. For example, ask for a new automation in Mode A and you should hear that read only mode is on, and that you can tick Allow controlling devices (everyday devices only), Allow editing setup, or both for full access.
 
 This works in two ways.
 
-* **A briefing when the server connects.** Tools that are switched off do not exist, so the assistant cannot try them and get refused. The server therefore tells the assistant up front which mode is on, which tool groups are off, which entities are protected, and exactly which settings would change that. It names both the Claude Desktop setting (for example "Access level") and the LM Studio name (for example `HA_ACCESS_MODE`). If nothing is restricted, there is no briefing.
-* **Refusal messages.** When a call is made and refused, the reply says what to change. This covers calls blocked by `control_only` mode, entities on the never touch list, and approval prompts that your client cannot show.
+* **A briefing when the server connects.** Tools that are switched off do not exist, so the assistant cannot try them and get refused. The server therefore tells the assistant up front which mode is on, which tool groups are off, which entities are protected, and exactly which settings would change that. It names both the Claude Desktop setting (for example "Allow editing setup") and the LM Studio name (for example `HA_ALLOW_EDIT`). If nothing is restricted, there is no briefing.
+* **Refusal messages.** When a call is made and refused, the reply says what to change. This covers calls blocked by control only mode, entities on the never touch list, and approval prompts that your client cannot show.
 
 Some things to know:
 
 * **The assistant cannot change settings.** Only you can, by editing the extension settings or the config file. The assistant is told to say so, and never to claim it changed one.
-* **Changes need a restart.** Settings are read when the server starts. In Claude Desktop, restart the extension. In LM Studio, switch the server off and on.
-* **It advises caution.** When a change would allow writes, the assistant is told to suggest taking a Home Assistant backup first. For `control_only` refusals it also reminds you that local models are less reliable at following safety rules.
+* **Changes need a restart and a new chat.** Settings are read when the server starts. In Claude Desktop, quit and reopen the app, then start a new chat, because older chats keep the tools and instructions they began with. In LM Studio, switch the server off and on, then start a new chat.
+* **It advises caution.** When a change would allow writes, the assistant is told to suggest taking a Home Assistant backup first. For control only refusals it also reminds you that local models are less reliable at following safety rules.
 * **Quality depends on the model.** The briefing is only as good as the model that reads it. Claude handles it well. Small local models may ignore it or garble it. The setting names are in the briefing so you can look them up yourself in the [Settings reference](#settings-reference).
 
 ## How to use it
@@ -1024,7 +1142,7 @@ npm run bundle    # writes home-assistant-mcp-0.2.1.mcpb
 To run from source against your instance:
 
 ```bash
-HA_URL=http://192.168.1.50:8123 HA_TOKEN=your_token HA_ACCESS_MODE=read_only npm start
+HA_URL=http://192.168.1.50:8123 HA_TOKEN=your_token npm start
 ```
 
 The tests use a mock Home Assistant and never touch a real one.
@@ -1032,6 +1150,7 @@ The tests use a mock Home Assistant and never touch a real one.
 ## Troubleshooting
 
 * **401 Unauthorized.** The token is wrong, was revoked, or has stray spaces or quotes. Create a new long-lived token and paste it again. Make sure it is from the same Home Assistant as the URL.
+* **401 Unauthorized, and you are sure the token works.** The error and the start-up log line say how long the token is and give a short fingerprint of it, for example `token length 102, fingerprint 3fa91c0d`. A real long-lived token is about 180 characters, so a much shorter length means the server was handed a cut-off value, even if the token you copied is fine. To check which token the server received, copy your working token, then run `pbpaste | tr -d '\n' | wc -c` for its length and `printf %s "$(pbpaste)" | shasum -a 256 | cut -c1-8` for its fingerprint (on Linux, use `xclip -o` or paste into `printf %s '...'`). If the length or fingerprint differs from what the server reports, the setting never reached the server intact. In Claude Desktop, clear the token box, paste the token again and save. In LM Studio, check the `HA_TOKEN` line for a cut-off or a stray character. The fingerprint is the first 8 characters of a SHA-256 hash, so it is safe to share and never reveals the token.
 * **It uses the wrong address.** The first log line shows the URL in use. Check the extension settings (or `HA_URL`) and restart the client.
 * **Cannot reach Home Assistant.** Open the URL in a browser from the same computer. Check firewalls, and use the IP address if `homeassistant.local` does not resolve.
 * **Self-signed certificate errors.** Set `HA_INSECURE_TLS=true`, or better, use a proper certificate.

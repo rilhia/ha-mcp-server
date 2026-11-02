@@ -9,7 +9,7 @@ about: Something does not work as expected
 
 **Home Assistant version and install type** (OS, Supervised, Container, Core):
 
-**Access level (read_only, control_only or full):**
+**Mode (A read only, B control only, C full, or edit only):**
 
 **What you asked, and which tool was called:**
 

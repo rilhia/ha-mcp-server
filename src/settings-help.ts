@@ -17,7 +17,8 @@ import type { Config } from "./config.js";
 // How a setting is called in each place. 'form' is the label in the Claude Desktop
 // settings form, and 'env' is the environment variable name used in LM Studio's mcp.json.
 const SETTINGS = {
-  accessMode: { form: "Access level", env: "HA_ACCESS_MODE" },
+  allowControl: { form: "Allow controlling devices", env: "HA_ALLOW_CONTROL" },
+  allowEdit: { form: "Allow editing setup", env: "HA_ALLOW_EDIT" },
   raw: { form: "Raw API tools", env: "HA_ENABLE_RAW" },
   config: { form: "Dashboards, registries, scenes, blueprints and integrations", env: "HA_ENABLE_CONFIG" },
   insights: { form: "Insight tools", env: "HA_ENABLE_INSIGHTS" },
@@ -29,7 +30,7 @@ const SETTINGS = {
 export type SettingKey = keyof typeof SETTINGS;
 
 // Every instruction ends with the same reminder, because settings are only read when the server starts.
-const RESTART = "Settings only take effect after the server restarts (Claude Desktop restarts the extension, and in LM Studio you switch the server off and on).";
+const RESTART = "Settings only take effect after the server restarts, and only in chats started after that (in Claude Desktop quit and reopen the app, and in LM Studio switch the server off and on, then start a new chat).";
 
 /** "In Claude Desktop, tick X. In LM Studio or another client, set ENV to "true"." */
 export function howToTurnOn(key: SettingKey): string {
@@ -37,10 +38,14 @@ export function howToTurnOn(key: SettingKey): string {
   return `To turn this on: in Claude Desktop tick "${s.form}", or in LM Studio or another client set ${s.env} to "true" in the config. ${RESTART}`;
 }
 
-/** "set Access level to control_only (HA_ACCESS_MODE in LM Studio)". One setting picks the mode, so the advice is always one change. */
-function setLevel(level: "read_only" | "control_only" | "full"): string {
-  const s = SETTINGS.accessMode;
-  return `set "${s.form}" to ${level} (in LM Studio or another client, set ${s.env} to "${level}")`;
+/** How to reach each mode. Two independent tick boxes, because the Claude Desktop form has no dropdown. */
+function setLevel(level: "read_only" | "control_only" | "edit_only" | "full"): string {
+  const c = SETTINGS.allowControl, e = SETTINGS.allowEdit;
+  const on = (x: { form: string; env: string }) => `"${x.form}" (${x.env} set to "true")`;
+  if (level === "control_only") return `tick ${on(c)} and leave "${e.form}" unticked`;
+  if (level === "edit_only") return `tick ${on(e)} and leave "${c.form}" unticked`;
+  if (level === "full") return `tick both ${on(c)} and ${on(e)}`;
+  return `untick both "${c.form}" and "${e.form}" (in LM Studio or another client, leave out ${c.env} and ${e.env})`;
 }
 
 /** The reverse: untick the box, or set the variable to "false". It must be set explicitly, because leaving it out now means "on". */
@@ -56,7 +61,7 @@ export const NEVER_TOUCH_HELP = `To allow it, the user would have to remove the 
 export const APPROVAL_HELP = `If the user wants to allow this without a prompt, they can turn off "${SETTINGS.approval.form}" (set ${SETTINGS.approval.env} to "false") and restart the server. They will then use the normal preview and confirm steps instead. ${RESTART}`;
 
 /** Added to refusals in control only mode. */
-export const CONTROL_ONLY_HELP = `If the user really needs this, they can ${setLevel("full")} to get full access, with approval for risky actions. Before suggesting that, remind them to take a Home Assistant backup, and that local models are less reliable at following safety rules. ${RESTART} You cannot change this setting yourself.`;
+export const CONTROL_ONLY_HELP = `If the user really needs this, they can also tick "${SETTINGS.allowEdit.form}" (${SETTINGS.allowEdit.env} set to "true"). With both boxes ticked they get full access, with approval for risky actions. Before suggesting that, remind them to take a Home Assistant backup, and that local models are less reliable at following safety rules. ${RESTART} You cannot change this setting yourself.`;
 
 // Builds the paragraph added to the server instructions. It states the current mode,
 // lists what is switched off, and says how to enable each thing. The assistant is told
@@ -65,13 +70,17 @@ export const CONTROL_ONLY_HELP = `If the user really needs this, they can ${setL
 export function statusNote(cfg: Config): string {
   const lines: string[] = [];
 
-  if (cfg.readOnly) {
+  if (cfg.accessMode === "read_only") {
     lines.push(
-      `Access level is read_only. You can look at everything but you cannot change anything: no switching devices, and no creating, editing or deleting automations, scripts, scenes, helpers, dashboards or settings. To allow switching everyday devices only, the user can ${setLevel("control_only")}. To allow all changes, they can ${setLevel("full")}. The access level is read_only unless changed.`
+      `Read only mode is ON. You can look at everything but you cannot change anything: no controlling devices, and no creating, editing or deleting automations, scripts, scenes, helpers, dashboards or settings. To allow controlling everyday devices only, the user can ${setLevel("control_only")}. To allow editing the setup only, they can ${setLevel("edit_only")}. To allow everything, they can ${setLevel("full")}. Read only mode is the default until one of those boxes is ticked.`
     );
-  } else if (cfg.controlOnly) {
+  } else if (cfg.accessMode === "control_only") {
     lines.push(
-      `Access level is control_only. You can read everything and use call_service for everyday devices such as lights, switches, fans, covers, media players and helper toggles. You cannot create, edit or delete automations, scripts, scenes, helpers, dashboards, registries, integrations or settings, you cannot restart Home Assistant, and locks, alarms and climate cannot be controlled. To allow everything, the user can ${setLevel("full")}. To go back to looking only, they can ${setLevel("read_only")}.`
+      `Control only mode is ON. You can read everything and use call_service for everyday devices such as lights, switches, fans, covers, media players and helper toggles. You cannot create, edit or delete automations, scripts, scenes, helpers, dashboards, registries, integrations or settings, you cannot restart Home Assistant, and locks, alarms and climate cannot be controlled. To also allow editing the setup, and so get full access, the user can tick "${SETTINGS.allowEdit.form}" (${SETTINGS.allowEdit.env} set to "true"). To go back to looking only, they can ${setLevel("read_only")}.`
+    );
+  } else if (cfg.accessMode === "edit_only") {
+    lines.push(
+      `Edit only mode is ON. You can read everything and create, edit and delete automations, scripts, scenes, helpers, dashboards and settings, and restart Home Assistant, with approval for risky actions. You cannot operate devices: call_service does not exist, and the raw write tools are off. To also allow controlling devices, and so get full access, the user can tick "${SETTINGS.allowControl.form}" (${SETTINGS.allowControl.env} set to "true"). To go back to looking only, they can ${setLevel("read_only")}.`
     );
   }
 

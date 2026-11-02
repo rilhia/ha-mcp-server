@@ -26,7 +26,7 @@ const check = process.argv.includes("--check");
 const transport = new StdioClientTransport({
   command: "node",
   args: [path.join(root, "dist", "index.js")],
-  env: { ...process.env, HA_URL: "http://127.0.0.1:1", HA_TOKEN: "manifest-sync", HA_ENABLE_RAW: "true", HA_ACCESS_MODE: "full" },
+  env: { ...process.env, HA_URL: "http://127.0.0.1:1", HA_TOKEN: "manifest-sync", HA_ENABLE_RAW: "true", HA_ALLOW_CONTROL: "true", HA_ALLOW_EDIT: "true" },
   stderr: "ignore",
 });
 const client = new Client({ name: "manifest-sync", version: "1.0.0" });
