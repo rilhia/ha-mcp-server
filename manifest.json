@@ -1,0 +1,425 @@
+{
+  "manifest_version": "0.3",
+  "name": "home-assistant-mcp",
+  "display_name": "Home Assistant (full control)",
+  "version": "0.2.1",
+  "description": "Comprehensive Home Assistant visibility, automation management and administration for Claude, with two phase commit safety guardrails.",
+  "long_description": "A full scope Model Context Protocol server for Home Assistant. It uses both the REST API and an authenticated WebSocket channel to search entities, inspect areas and services, render Jinja2 templates, create, edit and delete automations, scripts and helpers, read execution traces, check configuration and read logs. High risk actions (locks, alarms, climate, entry covers, major appliances, overwriting or deleting config, restarting Home Assistant) are rejected until the user explicitly confirms, and every config change is validated, backed up and reversible.",
+  "author": {
+    "name": "Richard Hall",
+    "url": "https://rilhia.com"
+  },
+  "license": "MIT",
+  "keywords": [
+    "home-assistant",
+    "smart-home",
+    "automation",
+    "iot"
+  ],
+  "server": {
+    "type": "node",
+    "entry_point": "dist/index.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/dist/index.js"
+      ],
+      "env": {
+        "HA_URL": "${user_config.ha_url}",
+        "HA_TOKEN": "${user_config.ha_token}",
+        "HA_READ_ONLY": "${user_config.read_only}",
+        "HA_INSECURE_TLS": "${user_config.insecure_tls}",
+        "HA_HIGH_RISK_ENTITIES": "${user_config.high_risk_entities}",
+        "HA_NEVER_TOUCH": "${user_config.never_touch_entities}",
+        "HA_REQUIRE_APPROVAL_PROMPT": "${user_config.require_approval_prompt}",
+        "HA_ENABLE_CONFIG": "${user_config.enable_config}",
+        "HA_ENABLE_INSIGHTS": "${user_config.enable_insights}",
+        "HA_ENABLE_RAW": "${user_config.enable_raw}",
+        "HA_ENABLE_SUPERVISOR": "${user_config.enable_supervisor}",
+        "HA_IGNORE_UNAVAILABLE": "${user_config.ignore_unavailable}"
+      }
+    }
+  },
+  "user_config": {
+    "ha_url": {
+      "type": "string",
+      "title": "Home Assistant URL",
+      "description": "Address of your Home Assistant instance, for example http://192.168.1.10:8123 or http://homeassistant.local:8123. Changing this takes effect after Claude Desktop restarts the extension.",
+      "required": true
+    },
+    "ha_token": {
+      "type": "string",
+      "title": "Long-lived access token",
+      "description": "Create one on your Home Assistant profile page under Security. Stored in your operating system keychain.",
+      "sensitive": true,
+      "required": true
+    },
+    "read_only": {
+      "type": "boolean",
+      "title": "Read only mode",
+      "description": "Only register tools that cannot change anything. Recommended for a first try.",
+      "default": false,
+      "required": false
+    },
+    "insecure_tls": {
+      "type": "boolean",
+      "title": "Allow self signed certificates",
+      "description": "Skip TLS verification. Only for a trusted local network.",
+      "default": false,
+      "required": false
+    },
+    "high_risk_entities": {
+      "type": "string",
+      "title": "Extra high risk entities",
+      "description": "Optional comma separated entity id patterns that always need confirmation, for example switch.workshop_*, light.pool_pump",
+      "required": false
+    },
+    "never_touch_entities": {
+      "type": "string",
+      "title": "Never touch entities",
+      "description": "Optional comma separated entity id patterns that this server must never change, even with confirmation, for example lock.front_door, alarm_control_panel.*",
+      "required": false
+    },
+    "require_approval_prompt": {
+      "type": "boolean",
+      "title": "Require an approval prompt for high risk actions",
+      "description": "When on, high risk actions only run if Claude can show you an approval prompt and you accept it. Clients that cannot show prompts will be refused.",
+      "default": false,
+      "required": false
+    },
+    "enable_config": {
+      "type": "boolean",
+      "title": "Dashboards, registries, scenes, blueprints and integrations",
+      "description": "Tools to manage dashboards, areas, devices, labels, scenes, blueprints and integrations.",
+      "default": true,
+      "required": false
+    },
+    "enable_insights": {
+      "type": "boolean",
+      "title": "Insight tools",
+      "description": "Home overview, problem finder, statistics, calendar, camera snapshots and similar read tools.",
+      "default": true,
+      "required": false
+    },
+    "enable_raw": {
+      "type": "boolean",
+      "title": "Raw API tools",
+      "description": "Generic tools that can call any REST or WebSocket endpoint. Writes through them are still gated.",
+      "default": true,
+      "required": false
+    },
+    "enable_supervisor": {
+      "type": "boolean",
+      "title": "Supervisor tools",
+      "description": "Add-ons, Supervisor backups and host info. Only works on Home Assistant OS or Supervised installs, not Docker.",
+      "default": false,
+      "required": false
+    },
+    "ignore_unavailable": {
+      "type": "string",
+      "title": "Entities expected to be unavailable",
+      "description": "Optional comma separated entity id patterns that find_problems and the overview should not report, for example light.*, switch.garage_*",
+      "required": false
+    }
+  },
+  "tools": [
+    {
+      "name": "search_entities",
+      "description": "Keyword search across entity ids, friendly names, areas, devices and device classes."
+    },
+    {
+      "name": "get_entity_details",
+      "description": "Complete inspection of one entity: current state, all attributes, decoded supported features, registry data (platform, device, area, disabled or hidden status) and the services available for its domain."
+    },
+    {
+      "name": "list_areas",
+      "description": "List every area (physical zone) with its id, name and the number of entities assigned to it."
+    },
+    {
+      "name": "get_area_summary",
+      "description": "All devices and entities assigned to a physical area, grouped by device, with current states."
+    },
+    {
+      "name": "list_services",
+      "description": "Expose registered service signatures."
+    },
+    {
+      "name": "get_history",
+      "description": "State changes for one or more entities over the last N hours, as a compact timeline."
+    },
+    {
+      "name": "get_logbook",
+      "description": "Logbook entries (what happened and why) over the last N hours, optionally for a single entity."
+    },
+    {
+      "name": "render_template",
+      "description": "Evaluate a Home Assistant Jinja2 template on the server through POST /api/template."
+    },
+    {
+      "name": "call_service",
+      "description": "Execute any Home Assistant service, for example light.turn_on or switch.toggle."
+    },
+    {
+      "name": "list_automations",
+      "description": "List automations with their state, last triggered time, mode and config id."
+    },
+    {
+      "name": "get_automation",
+      "description": "Read the full stored configuration of one automation through the Home Assistant config pipeline, together with its entity state and any high risk actions it contains."
+    },
+    {
+      "name": "validate_automation_config",
+      "description": "Check a draft automation config without saving it."
+    },
+    {
+      "name": "save_automation",
+      "description": "Create a new automation or overwrite an existing one."
+    },
+    {
+      "name": "delete_automation",
+      "description": "Permanently delete a stored automation."
+    },
+    {
+      "name": "get_automation_trace",
+      "description": "Inspect past runs of an automation to diagnose failures."
+    },
+    {
+      "name": "reload_automations",
+      "description": "Reload automations from storage and YAML without restarting Home Assistant."
+    },
+    {
+      "name": "list_scripts",
+      "description": "List scripts with their state, last triggered time, mode and config id."
+    },
+    {
+      "name": "get_script",
+      "description": "Read the full stored configuration of one script through the Home Assistant config pipeline, together with its entity state and any high risk actions it contains."
+    },
+    {
+      "name": "validate_script_config",
+      "description": "Check a draft script config without saving it."
+    },
+    {
+      "name": "save_script",
+      "description": "Create a new script or overwrite an existing one."
+    },
+    {
+      "name": "delete_script",
+      "description": "Permanently delete a stored script."
+    },
+    {
+      "name": "get_script_trace",
+      "description": "Inspect past runs of a script to diagnose failures."
+    },
+    {
+      "name": "reload_scripts",
+      "description": "Reload scripts from storage and YAML without restarting Home Assistant."
+    },
+    {
+      "name": "list_helpers",
+      "description": "List UI managed helpers (input_boolean, input_number, input_text, input_select, input_datetime, input_button, counter, timer, schedule)."
+    },
+    {
+      "name": "create_helper",
+      "description": "Create a new UI managed helper."
+    },
+    {
+      "name": "update_helper",
+      "description": "Overwrite fields of an existing UI managed helper."
+    },
+    {
+      "name": "delete_helper",
+      "description": "Permanently delete a UI managed helper."
+    },
+    {
+      "name": "get_ha_config",
+      "description": "Core facts about the instance: version, location name, time zone, unit system, run state, safe mode, and loaded integration count."
+    },
+    {
+      "name": "check_config",
+      "description": "Run Home Assistant's configuration check (POST /api/config/core/check_config)."
+    },
+    {
+      "name": "get_error_log",
+      "description": "Fetch the tail of the Home Assistant error log, optionally keeping only lines that match a filter."
+    },
+    {
+      "name": "get_system_health",
+      "description": "System health report per integration (Home Assistant core, supervisor, recorder database, and others), plus the core config summary."
+    },
+    {
+      "name": "restart_home_assistant",
+      "description": "Restart Home Assistant core."
+    },
+    {
+      "name": "stop_home_assistant",
+      "description": "Shut down Home Assistant core."
+    },
+    {
+      "name": "list_backups",
+      "description": "List rollback backups taken automatically before automations, scripts or helpers were changed or deleted."
+    },
+    {
+      "name": "restore_backup",
+      "description": "Roll an automation, script, scene, dashboard, helper or registry item (area, floor, label, device, entity, zone) back to a saved backup."
+    },
+    {
+      "name": "list_dashboards",
+      "description": "List all dashboards with their url_path, title, mode (storage or yaml) and sidebar settings."
+    },
+    {
+      "name": "get_dashboard",
+      "description": "Read a dashboard's stored configuration."
+    },
+    {
+      "name": "save_dashboard",
+      "description": "Save the full config of a dashboard."
+    },
+    {
+      "name": "save_dashboard_view",
+      "description": "Add a view to a dashboard, or replace the view with the same path (or title)."
+    },
+    {
+      "name": "create_dashboard",
+      "description": "Create a new, empty storage mode dashboard."
+    },
+    {
+      "name": "delete_dashboard",
+      "description": "Permanently delete a dashboard and its stored config."
+    },
+    {
+      "name": "delete_dashboard_config",
+      "description": "Remove a dashboard's stored config so Home Assistant generates it automatically again."
+    },
+    {
+      "name": "list_registry",
+      "description": "List areas, floors, labels, devices, entities or zones from the Home Assistant registries, with an optional text filter."
+    },
+    {
+      "name": "find_related",
+      "description": "Impact analysis."
+    },
+    {
+      "name": "manage_registry",
+      "description": "Create, update or delete an area, floor, label, zone, device or entity registry item."
+    },
+    {
+      "name": "list_scenes",
+      "description": "List scenes with their entity id, config id and last activation."
+    },
+    {
+      "name": "get_scene",
+      "description": "Read the stored config of a scene by config id or entity id, with the high risk entities it would change when activated."
+    },
+    {
+      "name": "save_scene",
+      "description": "Create a scene or overwrite an existing one."
+    },
+    {
+      "name": "delete_scene",
+      "description": "Permanently delete a stored scene."
+    },
+    {
+      "name": "list_blueprints",
+      "description": "List installed blueprints for automations or scripts with their path, name, author, source and input names."
+    },
+    {
+      "name": "import_blueprint",
+      "description": "Download a blueprint from a URL (GitHub, Home Assistant community forum or gist) and install it."
+    },
+    {
+      "name": "delete_blueprint",
+      "description": "Delete an installed blueprint."
+    },
+    {
+      "name": "list_integrations",
+      "description": "List configured integrations and helpers with their entry_id, domain, title, state and any problem reason."
+    },
+    {
+      "name": "manage_config_entry",
+      "description": "Manage a configured integration."
+    },
+    {
+      "name": "run_config_flow",
+      "description": "Drive Home Assistant's setup forms step by step, the way the UI does."
+    },
+    {
+      "name": "list_repairs",
+      "description": "List the issues shown under Settings, Repairs, with severity, domain and whether each can be fixed or has been ignored."
+    },
+    {
+      "name": "ignore_repair",
+      "description": "Mark a repair issue as ignored, or bring it back."
+    },
+    {
+      "name": "get_home_overview",
+      "description": "One call snapshot of the whole home: version, counts by domain, who is home, locks and alarms, open entry covers, climate, lights on, unavailable entities (skipping the ones you expect to be off), low batteries, pending updates, automation counts, integration problems and repairs."
+    },
+    {
+      "name": "find_problems",
+      "description": "Scan for things that need attention: unavailable or unknown entities (skipping expected ones), stale sensors that stopped reporting, low batteries, integrations that failed to load, open repairs, available updates, and optionally automations and scripts that reference entities that no longer exist."
+    },
+    {
+      "name": "explain_state_change",
+      "description": "Why did this entity change? Reads the logbook and reports, for each recent change, what caused it: an automation or script (with the id to pass to get_automation_trace), a user or service call, or the device itself."
+    },
+    {
+      "name": "get_statistics",
+      "description": "Long-term statistics (hourly, daily, monthly aggregates that outlive the normal history), used for energy, temperature trends and any sensor with a state class."
+    },
+    {
+      "name": "get_calendar_events",
+      "description": "List calendar entities, or the events of one calendar between two times (default: the next 7 days)."
+    },
+    {
+      "name": "get_todo_items",
+      "description": "Items on a to-do list entity such as todo.shopping_list."
+    },
+    {
+      "name": "get_forecast",
+      "description": "Daily, hourly or twice-daily forecast from a weather entity."
+    },
+    {
+      "name": "get_camera_snapshot",
+      "description": "Fetch the current picture from a camera or image entity and return it as an image, so it can be looked at directly."
+    },
+    {
+      "name": "wait_for_state",
+      "description": "Wait until an entity reaches a state, or changes from its current state if no target is given, or the timeout passes."
+    },
+    {
+      "name": "get_system_log",
+      "description": "Errors and warnings Home Assistant has logged, grouped with occurrence counts, source and the last message."
+    },
+    {
+      "name": "ha_ws_read",
+      "description": "Send any read-only Home Assistant WebSocket command, for example lovelace/config, recorder/statistics_during_period, config/entity_registry/list, search/related, energy/get_prefs, repairs/list_issues or persistent_notification/get."
+    },
+    {
+      "name": "ha_ws_write",
+      "description": "Send any Home Assistant WebSocket command that is not known to be read-only, for example config/entity_registry/update or lovelace/config/save."
+    },
+    {
+      "name": "ha_rest_read",
+      "description": "Read anything from the Home Assistant REST API with GET, for example /api/calendars, /api/events, /api/history/period/<time>, /api/error_log or /api/config/scene/config/<id>."
+    },
+    {
+      "name": "ha_rest_write",
+      "description": "Send POST, PUT, PATCH or DELETE to the Home Assistant REST API, for example POST /api/events/<type> to fire an event or POST /api/config/scene/config/<id> to save a scene."
+    },
+    {
+      "name": "get_audit_log",
+      "description": "Recent calls to tools that can change Home Assistant, newest first, including previews and rejections."
+    }
+  ],
+  "compatibility": {
+    "platforms": [
+      "darwin",
+      "win32",
+      "linux"
+    ],
+    "runtimes": {
+      "node": ">=18.17.0"
+    }
+  }
+}

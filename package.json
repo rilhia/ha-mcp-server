@@ -1,0 +1,48 @@
+{
+  "name": "ha-mcp-server",
+  "version": "0.2.1",
+  "description": "Full-scope Model Context Protocol server for Home Assistant with REST and WebSocket transports, automation CRUD, traces, and two-phase commit safety guardrails.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "ha-mcp-server": "dist/index.js"
+  },
+  "files": [
+    "dist",
+    "manifest.json",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts",
+    "test": "npm run build && node scripts/sync-manifest.mjs --check && node test/smoke.mjs",
+    "manifest:sync": "node scripts/sync-manifest.mjs",
+    "bundle": "node scripts/bundle.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "home-assistant",
+    "mcpb"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "undici": "^6.21.0",
+    "ws": "^8.18.0",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@anthropic-ai/mcpb": "^2.1.2",
+    "@types/node": "^20.14.0",
+    "@types/ws": "^8.5.12",
+    "tsx": "^4.19.0",
+    "typescript": "^5.6.0"
+  }
+}
