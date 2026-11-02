@@ -288,30 +288,41 @@ Claude Desktop reads the `.mcpb` file for you, so there is nothing to unpack.
 
 ### Step 2: Fill in the settings form
 
-The form has 13 settings. Only the first two are required. Every setting is explained in the [Settings reference](#settings-reference), and the numbers below match the numbers there.
+The form has 13 settings. Fill it in three parts. Every setting is explained in the [Settings reference](#settings-reference), and the numbers below match the numbers there.
 
-| # | Setting in the form | Mode A: Read only | Mode B: Control only | Mode C: Edit only | Mode D: Full access |
-| --- | --- | --- | --- | --- | --- |
-| 1 | Home Assistant URL | Your address | Your address | Your address | Your address |
-| 2 | Long-lived access token | Your token | Your token | Your token | Your token |
-| 3 | Allow controlling devices | Leave unticked | Tick | Leave unticked | Tick |
-| 4 | Allow editing setup | Leave unticked | Leave unticked | Tick | Tick |
-| 5 | Allow self signed certificates | Only if needed | Only if needed | Only if needed | Only if needed |
-| 6 | Extra high risk entities | Optional | Optional | Optional | Optional |
-| 7 | Never touch entities | Optional | Fill in | Fill in | Fill in |
-| 8 | Require an approval prompt for high risk actions | Leave on | Leave on | Leave on | Leave on |
-| 9 | Dashboards, registries, scenes, blueprints and integrations | Leave on | Leave on | Leave on | Leave on |
-| 10 | Insight tools | Leave on | Leave on | Leave on | Leave on |
-| 11 | Raw API tools | Leave off | Leave off | Leave off | Leave off |
-| 12 | Supervisor tools | Leave off | Leave off | Leave off | Leave off |
-| 13 | Entities expected to be unavailable | Optional | Optional | Optional | Optional |
+**Part 1: the two required settings**
 
-Notes on the table:
+| # | Setting in the form | What to enter |
+| --- | --- | --- |
+| 1 | Home Assistant URL | Your address, for example `http://192.168.1.50:8123` |
+| 2 | Long-lived access token | Your token |
 
-* **Settings 3 and 4 choose the mode.** If you tick neither, you get Mode A. The form can only show tick boxes, so the four modes are made from these two boxes. See [Choose how much access to give](#choose-how-much-access-to-give).
-* **Settings 6 and 7 protect specific entities.** Never touch entities is where you list your locks, alarms, garage doors and gates, for example `lock.*, alarm_control_panel.*, cover.garage_*, cover.gate_*`. Extra high risk entities is for things you want to double check. See [Protect specific entities](#protect-specific-entities).
-* **Setting 8, the approval prompt,** is on by default. If a risky action is refused because Claude cannot show a prompt, you can untick it, but then the preview and confirm steps are the only check.
-* **Setting 12, Supervisor tools,** only works on Home Assistant OS or Supervised. Leave it off for Docker or Core installs.
+**Part 2: choose your mode**
+
+Settings 3 and 4 are the only two that decide the mode. Both are unticked by default, which gives Mode A. If you are not sure, leave both unticked. You can change them later. See [Choose how much access to give](#choose-how-much-access-to-give).
+
+| Mode | 3: Allow controlling devices | 4: Allow editing setup |
+| --- | --- | --- |
+| A: Read only (the default) | Unticked | Unticked |
+| B: Control only | Ticked | Unticked |
+| C: Edit only | Unticked | Ticked |
+| D: Full access | Ticked | Ticked |
+
+**Part 3: everything else (optional, and the same in every mode)**
+
+These settings have safe defaults and do not depend on the mode. Leave them as they are unless the last column describes your situation.
+
+| # | Setting in the form | Default | Change it only if |
+| --- | --- | --- | --- |
+| 5 | Allow self signed certificates | Off | Your address starts with `https://` and uses a self-signed certificate |
+| 6 | Extra high risk entities | Empty | You want certain entities to always need approval before they are changed. See [Protect specific entities](#protect-specific-entities). |
+| 7 | Never touch entities | Empty | You want certain entities to never be changed, such as locks and garage doors. Optional, but recommended once you move beyond Mode A. See [Protect specific entities](#protect-specific-entities). |
+| 8 | Require an approval prompt for high risk actions | On | Risky actions are refused because your client cannot show a prompt. Switching it off means the preview and confirm steps are then the only check. |
+| 9 | Dashboards, registries, scenes, blueprints and integrations | On | You want to give the assistant fewer tools |
+| 10 | Insight tools | On | You want to give the assistant fewer tools |
+| 11 | Raw API tools | Off | You have a specific need. Read [Raw API tools](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) first. |
+| 12 | Supervisor tools | Off | You run Home Assistant OS or Supervised and want add-on and host tools. They do not work on Docker or Core installs. |
+| 13 | Entities expected to be unavailable | Empty | Some devices are often switched off and you do not want them reported as problems |
 
 ### Step 3: Check it works
 
