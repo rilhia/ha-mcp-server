@@ -169,7 +169,50 @@ The dashboards and insight tool groups are on by default. They are not a risk on
 * **What it can do:** everything in Modes B and C. The `call_service` tool is no longer limited to everyday devices, so locks, alarms, heating and any other service are possible. The raw write tools are also available if you have switched on the Raw API tools.
 * **Safeguards:** every call still goes through the risk assessment, the never touch list and the preview and confirm steps.
 * **How to turn it on:** tick both boxes. Read [Turning on Mode D](#turning-on-mode-d-be-careful) first if you use LM Studio.
-* **Tools:** 68, or 72 with the Raw API tools on.
+* **Tools:** 68, or 72 with the Raw API tools on. For every tool the server has, see [Getting everything: all 78 tools](#getting-everything-all-78-tools).
+
+### Getting everything: all 78 tools
+
+Mode D gives full control and full editing, but the raw API tools and the Supervisor tools are separate switches that are off by default. For the complete set of 78 tools, switch on all four of these:
+
+| Setting | Claude Desktop | LM Studio | Needed value | Default |
+| --- | --- | --- | --- | --- |
+| Allow controlling devices | Tick the box | `HA_ALLOW_CONTROL` | `"true"` | Off |
+| Allow editing setup | Tick the box | `HA_ALLOW_EDIT` | `"true"` | Off |
+| Raw API tools | Tick the box | `HA_ENABLE_RAW` | `"true"` | Off |
+| Supervisor tools | Tick the box | `HA_ENABLE_SUPERVISOR` | `"true"` | Off |
+
+Two more settings must stay on, and they are on by default: Dashboards, registries, scenes, blueprints and integrations (`HA_ENABLE_CONFIG`), and Insight tools (`HA_ENABLE_INSIGHTS`). Switching either one off removes tools. With the dashboards group off, for example, the full set drops from 78 to 56.
+
+This is how the tool count builds up:
+
+| Settings switched on | Tools |
+| --- | --- |
+| Both access boxes (Mode D) | 68 |
+| Mode D and Raw API tools | 72 |
+| Mode D and Supervisor tools | 74 |
+| Mode D, Raw API tools and Supervisor tools | 78 |
+
+In LM Studio the `env` block for everything looks like this:
+
+```json
+"env": {
+  "HA_URL": "http://192.168.1.50:8123",
+  "HA_TOKEN": "eyJhbGciOi...your_long_token...",
+  "HA_ALLOW_CONTROL": "true",
+  "HA_ALLOW_EDIT": "true",
+  "HA_ENABLE_RAW": "true",
+  "HA_ENABLE_SUPERVISOR": "true"
+}
+```
+
+Things to know before you do this:
+
+* **Supervisor tools only work on Home Assistant OS or Supervised.** On a Docker or Core install they still count towards the 78, but they answer that no Supervisor is available.
+* **The raw write tools have no automatic backup.** Read [Raw API tools](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) first.
+* **The approval prompt is still on by default.** If your client cannot show prompts, risky actions are refused. Switching `HA_REQUIRE_APPROVAL_PROMPT` off is explained in [Turning on Mode D](#turning-on-mode-d-be-careful).
+* **Your never touch and extra high risk lists still apply.** Everything is available, but not everything is allowed. Anything on the never touch list stays blocked.
+* **This is not recommended for local models.** See the [warning for local models](#a-serious-warning-for-lm-studio-and-other-local-models).
 
 ### Changing the mode later
 
