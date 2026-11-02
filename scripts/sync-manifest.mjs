@@ -18,13 +18,15 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // If --check was passed we only compare, we do not write.
 const check = process.argv.includes("--check");
 
-// We launch the compiled server exactly like a real MCP client would. The address
+// We launch the compiled server exactly like a real MCP client would. We switch the
+// raw API tools ON here even though they are off by default, so that the manifest
+// lists every tool the bundle can offer. The address
 // and token are dummies: tool registration does not need a working Home Assistant,
 // so this works offline.
 const transport = new StdioClientTransport({
   command: "node",
   args: [path.join(root, "dist", "index.js")],
-  env: { ...process.env, HA_URL: "http://127.0.0.1:1", HA_TOKEN: "manifest-sync" },
+  env: { ...process.env, HA_URL: "http://127.0.0.1:1", HA_TOKEN: "manifest-sync", HA_ENABLE_RAW: "true" },
   stderr: "ignore",
 });
 const client = new Client({ name: "manifest-sync", version: "1.0.0" });

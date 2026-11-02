@@ -13,6 +13,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { assessServiceCall, controlModeViolation, evaluateGate, neverTouchHits, type ServiceTarget } from "../safety.js";
+import { CONTROL_ONLY_HELP, NEVER_TOUCH_HELP } from "../settings-help.js";
 import { ToolOutcome, asArray } from "../util.js";
 import { defineTool, registerTool, type ToolContext } from "./registry.js";
 
@@ -90,7 +91,7 @@ const callService = defineTool({
     const notAllowed = controlModeViolation(ctx.cfg, domain, service, target);
     if (notAllowed) {
       return new ToolOutcome(
-        { status: "blocked_control_only", executed: false, message: `${notAllowed} (HA_CONTROL_ONLY is on.)` },
+        { status: "blocked_control_only", executed: false, message: `${notAllowed} ${CONTROL_ONLY_HELP}` },
         true
       );
     }
@@ -119,7 +120,7 @@ const callService = defineTool({
           status: "blocked_never_touch",
           executed: false,
           entities: blocked,
-          message: "These entities are on the never-touch list (HA_NEVER_TOUCH) and cannot be changed through this server, even with confirmation.",
+          message: `These entities are on the never-touch list (HA_NEVER_TOUCH) and cannot be changed through this server, even with confirmation. ${NEVER_TOUCH_HELP}`,
         },
         true
       );

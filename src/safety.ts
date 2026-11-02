@@ -14,6 +14,7 @@ import type { Config } from "./config.js";
 import type { HAClient, HAState } from "./ha-client.js";
 import { callStore, type CallContext } from "./context.js";
 import { consumePlanToken, issuePlanToken, verifyPlanToken } from "./plan.js";
+import { APPROVAL_HELP } from "./settings-help.js";
 import { ToolOutcome, asArray, domainOf, globToRegExp } from "./util.js";
 
 // The three risk levels. Only 'high' triggers the two step approval process.
@@ -583,7 +584,7 @@ export async function evaluateGate(p: GateParams): Promise<GateResult> {
           message:
             approval === "declined"
               ? "The user declined the approval prompt. Nothing was changed."
-              : "Approval prompts are required (HA_REQUIRE_APPROVAL_PROMPT) but this client cannot show one. Nothing was changed.",
+              : "Approval prompts are required (HA_REQUIRE_APPROVAL_PROMPT) but this client cannot show one. Nothing was changed. " + APPROVAL_HELP,
         },
         true
       ),

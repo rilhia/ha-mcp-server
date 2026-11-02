@@ -18,6 +18,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { evaluateGate, neverTouchHits, scanConfigRisk } from "../safety.js";
+import { NEVER_TOUCH_HELP } from "../settings-help.js";
 import { ToolOutcome } from "../util.js";
 import { defineTool, registerTool, type ToolContext } from "./registry.js";
 
@@ -183,7 +184,7 @@ const wsWrite = defineTool({
     const blocked = neverTouchHits(ids, ctx.cfg);
     if (blocked.length) {
       return new ToolOutcome(
-        { status: "blocked_never_touch", executed: false, entities: blocked, message: "These entities are on the never-touch list (HA_NEVER_TOUCH)." },
+        { status: "blocked_never_touch", executed: false, entities: blocked, message: `These entities are on the never-touch list (HA_NEVER_TOUCH). ${NEVER_TOUCH_HELP}` },
         true
       );
     }
@@ -265,7 +266,7 @@ const restWrite = defineTool({
     const blocked = neverTouchHits(ids, ctx.cfg);
     if (blocked.length) {
       return new ToolOutcome(
-        { status: "blocked_never_touch", executed: false, entities: blocked, message: "These entities are on the never-touch list (HA_NEVER_TOUCH)." },
+        { status: "blocked_never_touch", executed: false, entities: blocked, message: `These entities are on the never-touch list (HA_NEVER_TOUCH). ${NEVER_TOUCH_HELP}` },
         true
       );
     }

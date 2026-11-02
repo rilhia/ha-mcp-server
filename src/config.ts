@@ -155,12 +155,14 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     auditPath: clean(env.HA_AUDIT_LOG) ?? path.join(path.dirname(backupDir), "audit.jsonl"),
     ignoreUnavailable: list(env.HA_IGNORE_UNAVAILABLE).map((p) => p.toLowerCase()),
     toolsets: {
-      // Config, insights and raw are on unless switched off. Supervisor is the
+      // Config and insights are on unless switched off. Raw is OFF unless switched on,
+      // because the raw tools are the most powerful and least guarded ones, so a user
+      // should choose to have them. Supervisor is the
       // opposite: off unless switched on, because most people run Docker or Core
       // installs that have no Supervisor at all.
       config: bool(env.HA_ENABLE_CONFIG, true),
       insights: bool(env.HA_ENABLE_INSIGHTS, true),
-      raw: bool(env.HA_ENABLE_RAW, true),
+      raw: bool(env.HA_ENABLE_RAW, false),
       supervisor: bool(env.HA_ENABLE_SUPERVISOR, false),
     },
   };

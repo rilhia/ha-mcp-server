@@ -12,6 +12,7 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { evaluateGate, neverTouchHits } from "../safety.js";
+import { NEVER_TOUCH_HELP } from "../settings-help.js";
 import { ToolOutcome, describeChanges, diffObjects } from "../util.js";
 import { defineTool, registerTool, type ToolContext } from "./registry.js";
 
@@ -181,7 +182,7 @@ const manage = defineTool({
     const touched = [id, data.new_entity_id].filter(Boolean) as string[];
     const blocked = neverTouchHits(touched, ctx.cfg);
     if (blocked.length) {
-      return new ToolOutcome({ status: "blocked_never_touch", executed: false, entities: blocked, message: "These entities are on the never-touch list (HA_NEVER_TOUCH)." }, true);
+      return new ToolOutcome({ status: "blocked_never_touch", executed: false, entities: blocked, message: `These entities are on the never-touch list (HA_NEVER_TOUCH). ${NEVER_TOUCH_HELP}` }, true);
     }
 
     // For anything but create, fetch the current item so we can show a diff and back it up.

@@ -112,8 +112,8 @@
     "enable_raw": {
       "type": "boolean",
       "title": "Raw API tools",
-      "description": "Generic tools that can call any REST or WebSocket endpoint. Writes through them are still gated.",
-      "default": true,
+      "description": "Off by default. Generic tools that can call any REST or WebSocket endpoint, for anything the other tools do not cover. Writes through them are still gated and have no automatic backup. Only turn on if you need them.",
+      "default": false,
       "required": false
     },
     "enable_supervisor": {

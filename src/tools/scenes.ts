@@ -9,6 +9,7 @@ import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
 import { deleteConfigItem, fetchConfigItem, resolveItemId, stripId, writeConfigItem } from "../resources.js";
 import { entityRiskReasons, evaluateGate, neverTouchHits } from "../safety.js";
+import { NEVER_TOUCH_HELP } from "../settings-help.js";
 import { ToolOutcome, describeChanges, diffObjects } from "../util.js";
 import { defineTool, registerTool, type ToolContext } from "./registry.js";
 
@@ -94,7 +95,7 @@ const saveScene = defineTool({
     if (errors.length) return new ToolOutcome({ status: "invalid", executed: false, errors }, true);
     const blocked = neverTouchHits(Object.keys((cfg as any).entities), ctx.cfg);
     if (blocked.length) {
-      return new ToolOutcome({ status: "blocked_never_touch", executed: false, entities: blocked, message: "The scene includes entities on the never-touch list (HA_NEVER_TOUCH)." }, true);
+      return new ToolOutcome({ status: "blocked_never_touch", executed: false, entities: blocked, message: `The scene includes entities on the never-touch list (HA_NEVER_TOUCH). ${NEVER_TOUCH_HELP}` }, true);
     }
     const id = scene_id ? (await resolveItemId(ctx.ha, "scene", scene_id)).id : String(Date.now());
     const existing = await fetchConfigItem(ctx.ha, "scene", id);

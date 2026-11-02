@@ -31,6 +31,7 @@ import {
   type ConfigKind,
 } from "../resources.js";
 import { evaluateGate, neverTouchHits, scanConfigRisk } from "../safety.js";
+import { NEVER_TOUCH_HELP } from "../settings-help.js";
 import { ToolOutcome, describeChanges, diffObjects, slugify } from "../util.js";
 import { defineTool, registerTool, type ToolContext } from "./registry.js";
 
@@ -223,7 +224,7 @@ function buildKindTools(kind: ConfigKind) {
             status: "blocked_never_touch",
             executed: false,
             entities: blockedRefs,
-            message: `This ${kind} references entities on the never-touch list (HA_NEVER_TOUCH), so it cannot be saved through this server.`,
+            message: `This ${kind} references entities on the never-touch list (HA_NEVER_TOUCH), so it cannot be saved through this server. ${NEVER_TOUCH_HELP}`,
           },
           true
         );

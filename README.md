@@ -2,7 +2,7 @@
 
 > **This is a beta, version 0.2.1.** It works well against a real Home Assistant 2026.10 instance, but some write paths have not been tried on real hardware (see [What has and has not been tested](#what-has-and-has-not-been-tested)). Please start in read only mode, keep backups of your Home Assistant, and report anything odd as a GitHub issue.
 
-A Model Context Protocol (MCP) server that lets an AI assistant look at, understand and (if you allow it) change your Home Assistant. It has 72 tools by default (44 in read only mode, 45 in control only mode, and 78 with the optional Supervisor group switched on), covering entities, areas, history, automations, scripts, helpers, dashboards, scenes, blueprints, integrations, repairs, diagnostics and a raw API escape hatch.
+A Model Context Protocol (MCP) server that lets an AI assistant look at, understand and (if you allow it) change your Home Assistant. It has 68 tools by default (42 in read only mode and 43 in control only mode). Switching on the optional raw API tools adds 4 (or 2 in the restricted modes), and the optional Supervisor group adds 6 more, for a maximum of 78, covering entities, areas, history, automations, scripts, helpers, dashboards, scenes, blueprints, integrations, repairs, diagnostics and a raw API escape hatch.
 
 It works with any MCP client that can launch a local program over stdio. This guide covers two of them in detail: **Claude Desktop** and **LM Studio**.
 
@@ -17,14 +17,16 @@ It works with any MCP client that can launch a local program over stdio. This gu
 5. [Set up in LM Studio](#set-up-in-lm-studio)
 6. [Settings reference](#settings-reference)
 7. [How the settings work together](#how-the-settings-work-together)
-8. [How to use it](#how-to-use-it)
-9. [The tools, one by one](#the-tools-one-by-one)
-10. [Safety model](#safety-model)
-11. [What has and has not been tested](#what-has-and-has-not-been-tested)
-12. [Build from source](#build-from-source)
-13. [Troubleshooting](#troubleshooting)
-14. [Project layout](#project-layout)
-15. [Licence](#licence)
+8. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default)
+9. [When something is not allowed](#when-something-is-not-allowed)
+10. [How to use it](#how-to-use-it)
+11. [The tools, one by one](#the-tools-one-by-one)
+12. [Safety model](#safety-model)
+13. [What has and has not been tested](#what-has-and-has-not-been-tested)
+14. [Build from source](#build-from-source)
+15. [Troubleshooting](#troubleshooting)
+16. [Project layout](#project-layout)
+17. [Licence](#licence)
 
 ## What it can do
 
@@ -53,8 +55,9 @@ Before you install anything, decide how much the assistant is allowed to do. The
 | Change dashboards, areas, labels, devices or integrations | no | no | yes, with approval |
 | Restart or stop Home Assistant | no | no | yes, with approval |
 | Locks, alarms and heating | no | no | yes, with approval |
-| Raw API write tools | no | no | yes, with approval |
-| Tools available | 44 | 45 | 72 |
+| Raw API write tools (only if switched on) | no | no | yes, with approval |
+| Tools available (default) | 42 | 43 | 68 |
+| Tools available with Raw API tools on | 44 | 45 | 72 |
 | `HA_READ_ONLY` | `"true"` | `"false"` | `"false"` |
 | `HA_CONTROL_ONLY` | not needed | `"true"` | not set |
 | Tick in Claude Desktop | Read only mode | Control only mode | neither |
@@ -88,7 +91,7 @@ If you use this with LM Studio or any local model:
 * Put anything you could not bear to have changed on the never touch list (`HA_NEVER_TOUCH`), for example `lock.*`, `alarm_control_panel.*`, `cover.garage_*`.
 * Turn on `HA_REQUIRE_APPROVAL_PROMPT` only if your client supports MCP approval prompts. LM Studio may not, in which case high risk actions will simply be refused, which is the safe outcome.
 * Take a full Home Assistant backup first.
-* Consider turning off the Raw toolset (`HA_ENABLE_RAW=false`), which is the most powerful and least guarded part.
+* Leave the raw API tools off. They are off by default (`HA_ENABLE_RAW` is not set), and they are the most powerful and least guarded part. See [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default).
 * Never leave a write enabled model running unattended.
 
 ## Before you start
@@ -136,7 +139,7 @@ The form has 13 settings. Only the first two are required. Every setting is expl
 | 8 | Require an approval prompt for high risk actions | leave off | optional | optional |
 | 9 | Dashboards, registries, scenes, blueprints and integrations | leave on | leave on | leave on |
 | 10 | Insight tools | leave on | leave on | leave on |
-| 11 | Raw API tools | leave on | leave on | consider turning off |
+| 11 | Raw API tools | leave off | leave off | leave off |
 | 12 | Supervisor tools | leave off | leave off | leave off |
 | 13 | Entities expected to be unavailable | optional | optional | optional |
 
@@ -151,7 +154,7 @@ Notes on the table:
 
 1. Make sure the extension is switched **Enabled**.
 2. Start a new chat and ask: "Check you can reach Home Assistant."
-3. If it does not work, look at the extension's log. The first line tells you which URL is in use and how long the token is (never the token itself). The second line says which mode started, and how many tools it registered: `READ ONLY mode` (44 tools), `CONTROL ONLY mode` (45 tools), or neither (72 tools).
+3. If it does not work, look at the extension's log. The first line tells you which URL is in use and how long the token is (never the token itself). The second line says which mode started, and how many tools it registered: `READ ONLY mode` (42 tools), `CONTROL ONLY mode` (43 tools), or neither (68 tools). These counts assume the Raw API tools are off, which is the default.
 
 ### Changing settings later
 
@@ -277,7 +280,7 @@ You should see lines like these (they appear on the error stream, which is norma
 
 ```
 [ha-mcp] using HA_URL=http://192.168.1.50:8123 (websocket ws://192.168.1.50:8123/api/websocket), token length 183
-[ha-mcp] v0.2.1 ready with 44 tools for http://192.168.1.50:8123 (READ ONLY mode)
+[ha-mcp] v0.2.1 ready with 42 tools for http://192.168.1.50:8123 (READ ONLY mode)
 [ha-mcp] connected to Home Assistant 2026.10.1 (Home)
 ```
 
@@ -304,7 +307,7 @@ A fresh file contains `{ "mcpServers": {} }`.
 
 Put an entry for the server inside `mcpServers`. Use the example for the mode you chose. The three examples differ only in the `HA_READ_ONLY` and `HA_CONTROL_ONLY` lines. Replace the paths, address and token with your own.
 
-**Mode A: Read only (start here).** 44 tools.
+**Mode A: Read only (start here).** 42 tools.
 
 ```json
 {
@@ -324,7 +327,7 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 }
 ```
 
-**Mode B: Control only (everyday use).** 45 tools. Compared with Mode A, `HA_READ_ONLY` becomes `"false"` and `HA_CONTROL_ONLY` is added.
+**Mode B: Control only (everyday use).** 43 tools. Compared with Mode A, `HA_READ_ONLY` becomes `"false"` and `HA_CONTROL_ONLY` is added.
 
 ```json
 {
@@ -345,7 +348,7 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 }
 ```
 
-**Mode C: Full (rarely, with care).** 72 tools. Compared with Mode A, only `HA_READ_ONLY` changes. Read [Turning on Mode C](#turning-on-mode-c-be-careful) before using it.
+**Mode C: Full (rarely, with care).** 68 tools. Compared with Mode A, only `HA_READ_ONLY` changes. Read [Turning on Mode C](#turning-on-mode-c-be-careful) before using it.
 
 ```json
 {
@@ -390,7 +393,7 @@ All the other settings you can add to `env` are in the [Settings reference](#set
 1. Save the file (Cmd+S or Ctrl+S).
 2. LM Studio reloads its MCP servers. In the Program tab you should see `home-assistant` with a toggle.
 3. Switch the toggle on for the chat you want to use it in.
-4. Click the server to see its tools, and **count them**: 44 for Mode A, 45 for Mode B, 72 for Mode C. If the number is not what you expected, stop and check your `HA_READ_ONLY` and `HA_CONTROL_ONLY` lines.
+4. Click the server to see its tools, and **count them**: 42 for Mode A, 43 for Mode B, 68 for Mode C (if you have turned the raw tools on, add 2 for Mode A or B, or 4 for Mode C). If the number is not what you expected, stop and check your `HA_READ_ONLY` and `HA_CONTROL_ONLY` lines.
 5. Choose a model that supports **tool use** (LM Studio marks these with a hammer icon).
 
 ### Step 9: Try it
@@ -401,7 +404,7 @@ All the other settings you can add to `env` are in the [Settings reference](#set
 
 ### Switching between modes later
 
-Edit `mcp.json`, change the `HA_READ_ONLY` and `HA_CONTROL_ONLY` lines, save, then switch the server off and on again in the Program tab. The mode is only read when the server starts. After every change, count the tools again (44, 45 or 72).
+Edit `mcp.json`, change the `HA_READ_ONLY` and `HA_CONTROL_ONLY` lines, save, then switch the server off and on again in the Program tab. The mode is only read when the server starts. After every change, count the tools again (42, 43 or 68).
 
 ### Turning on Mode C (be careful)
 
@@ -409,17 +412,17 @@ For everyday switching, use Mode B. Only go further if you really need the model
 
 1. Take a full Home Assistant backup first (Settings, System, Backups).
 2. Fill in `HA_NEVER_TOUCH` with every lock, alarm, garage door, gate, oven, heater or anything else you could not bear to have changed.
-3. Keep `HA_ENABLE_RAW` as `"false"`.
+3. Leave `HA_ENABLE_RAW` off (its default).
 4. Set `HA_READ_ONLY` to `"false"` and make sure `HA_CONTROL_ONLY` is not `"true"`. Save, then switch the server off and on in the Program tab.
-5. Check the tool count has gone up to 72, then try one harmless thing, such as turning a single lamp on and off.
+5. Check the tool count has gone up to 68, then try one harmless thing, such as turning a single lamp on and off.
 6. Read every plan the model shows you before agreeing to it. Do not let a local model approve its own plans.
 7. When the job is done, go back to Mode A or B.
 
 ### Getting the best results from a local model
 
 * **Pick a model that is good at tool calling.** Small models often choose the wrong tool, invent entity names or give up. Larger instruction-tuned models do much better.
-* **Give the model a big context window.** The server describes up to 72 tools, which takes a lot of space before you even ask a question. Set a context length of at least 16,000 tokens in LM Studio, and more if you can.
-* **Reduce the number of tools.** Fewer tools means fewer mistakes. A good small setup is Mode A with `HA_ENABLE_RAW` and `HA_ENABLE_CONFIG` both `"false"`. That leaves the discovery, insights, automation reading and system tools.
+* **Give the model a big context window.** The server describes up to 68 tools, which takes a lot of space before you even ask a question. Set a context length of at least 16,000 tokens in LM Studio, and more if you can.
+* **Reduce the number of tools.** Fewer tools means fewer mistakes. A good small setup is Mode A with `HA_ENABLE_CONFIG` set to `"false"` (the raw tools are already off by default). That leaves the discovery, insights, automation reading and system tools.
 * **Lower `HA_MAX_OUTPUT_CHARS`** (for example to `"15000"`) if the model loses track in long answers.
 * **Ask specific questions.** "What is the temperature in the office?" works better than "How is my house?"
 
@@ -476,7 +479,7 @@ This is for reference. It is **not** a recommended setup, since several values a
 | `401 Unauthorized` | Token is wrong, was deleted, or came from a different Home Assistant. Make a new one. |
 | `Cannot reach Home Assistant` | Wrong address or port, or a firewall. Test the address in a browser. |
 | The file will not save, or shows red marks | A JSON mistake such as a missing comma, a curly quote, or a trailing comma. |
-| The tool count is not what you expected (44, 45 or 72) | Check `HA_READ_ONLY` and `HA_CONTROL_ONLY`. If you left both out, you get Mode C (72 tools). |
+| The tool count is not what you expected (42, 43 or 68) | Check `HA_READ_ONLY` and `HA_CONTROL_ONLY`. If you left both out, you get Mode C (68 tools). |
 | The model ignores the tools or answers wildly | The model does not support tool use well. Try a larger model or fewer tools. |
 
 Other MCP clients (Cursor, Cline, Continue and so on) use the same idea: a `command` of `node` (preferably the full path), an `args` entry that points at `dist/index.js`, and the settings as `env` values.
@@ -503,7 +506,7 @@ Notes for the `env` names:
 | 8 | Require an approval prompt for high risk actions | `HA_REQUIRE_APPROVAL_PROMPT` | off | A human approval prompt becomes mandatory for risky actions. |
 | 9 | Dashboards, registries, scenes, blueprints and integrations | `HA_ENABLE_CONFIG` | on | The config tool group. |
 | 10 | Insight tools | `HA_ENABLE_INSIGHTS` | on | The insight tool group. |
-| 11 | Raw API tools | `HA_ENABLE_RAW` | on | The four raw API tools. |
+| 11 | Raw API tools | `HA_ENABLE_RAW` | **off** | The four raw API tools. See [Raw API tools](#raw-api-tools-what-they-do-and-why-they-are-off-by-default). |
 | 12 | Supervisor tools | `HA_ENABLE_SUPERVISOR` | off | The add-on and host tools. |
 | 13 | Entities expected to be unavailable | `HA_IGNORE_UNAVAILABLE` | empty | Entities that problem checks should not report. |
 | | *not in the form* | `HA_HIGH_RISK_DOMAINS` | empty | Extra service domains to treat as high risk, for example `"vacuum,media_player"`. |
@@ -518,9 +521,9 @@ Notes for the `env` names:
 
 **2. Long-lived access token (required).** In Home Assistant, click your name at the bottom left to open your profile, open the **Security** tab, scroll to the bottom and click **Create token**. Give it a name such as `Claude MCP`, and copy it straight away because Home Assistant only shows it once. Claude Desktop stores it in your operating system keychain, not in a plain file. Quotes, a pasted `Bearer ` prefix and stray spaces or line breaks are removed for you. Make a token just for this extension so you can revoke it separately.
 
-**3. Read only mode (Mode A).** Only tools that cannot change anything are available. Claude can look at everything but cannot change a thing. **Recommended for a first try**, and not ticked by default, so tick it yourself. When on, 44 tools are available.
+**3. Read only mode (Mode A).** Only tools that cannot change anything are available. Claude can look at everything but cannot change a thing. **Recommended for a first try**, and not ticked by default, so tick it yourself. When on, 42 tools are available (44 with the Raw API tools on).
 
-**4. Control only mode (Mode B).** For everyday use. Claude can read everything and switch lights, plugs, fans, blinds, media players and similar devices, but cannot change automations, scripts, scenes, helpers, dashboards or settings, and cannot control locks, alarms or heating. 45 tools are available. It is ignored if Read only mode is ticked. Full details are in [Mode B](#mode-b-control-only).
+**4. Control only mode (Mode B).** For everyday use. Claude can read everything and switch lights, plugs, fans, blinds, media players and similar devices, but cannot change automations, scripts, scenes, helpers, dashboards or settings, and cannot control locks, alarms or heating. 43 tools are available (45 with the Raw API tools on). It is ignored if Read only mode is ticked. Full details are in [Mode B](#mode-b-control-only).
 
 **5. Allow self signed certificates.** Skips certificate checking. Only needed if your Home Assistant address starts with `https://` and uses a self-signed certificate, and only on a network you trust. Leave it off for plain `http://` addresses, where it does nothing.
 
@@ -534,7 +537,7 @@ Notes for the `env` names:
 
 **10. Insight tools.** On by default. The home overview, problem finder, state change explainer, statistics, calendar, to-do list, forecast, camera snapshot, wait for state and system log tools. All of them are read tools.
 
-**11. Raw API tools.** On by default. Generic tools that can call any REST or WebSocket endpoint, for anything the other tools do not cover. Writes through them still need the two step approval, but they are the most powerful and least guarded tools here. Switch them off if you want a tighter setup.
+**11. Raw API tools.** **Off by default.** Four generic tools that can send any request to Home Assistant's REST or WebSocket API, for anything the other tools do not cover. Writes through them still need the two step approval, but they are the most powerful and least guarded tools here, and they have no automatic backup. Only turn them on if you have a specific need. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) explains this in full.
 
 **12. Supervisor tools.** Off by default. Add-ons, Home Assistant backups and host information. They **only work on Home Assistant OS or Supervised installs**. On Docker or Core installs there is no Supervisor, so leave this off.
 
@@ -548,15 +551,15 @@ Two things are decided, in this order. First, **which tools exist** when the ser
 
 | `HA_READ_ONLY` | `HA_CONTROL_ONLY` | Result | Tools |
 | --- | --- | --- | --- |
-| `true` | anything | Mode A. Read tools only. Read only wins, so control only is ignored. | 44 |
-| `false` or not set | `true` | Mode B. Read tools plus `call_service` limited to everyday devices. | 45 |
-| `false` or not set | `false` or not set | Mode C. Everything. | 72 |
+| `true` | anything | Mode A. Read tools only. Read only wins, so control only is ignored. | 42 |
+| `false` or not set | `true` | Mode B. Read tools plus `call_service` limited to everyday devices. | 43 |
+| `false` or not set | `false` or not set | Mode C. Everything. | 68 |
 
 Note that **leaving `HA_READ_ONLY` out means writes are on.** Always set the mode you want explicitly.
 
 The `HA_ENABLE_*` switches then remove whole groups of tools from whichever list you ended up with.
 
-* `HA_ENABLE_RAW=false` removes the raw API tools. In the two restricted modes only the two raw read tools are affected.
+* `HA_ENABLE_RAW=true` adds the raw API tools, which are off by default. In the two restricted modes only the two raw read tools appear.
 * `HA_ENABLE_CONFIG=false` removes dashboards, registries, scenes, blueprints and integrations.
 * `HA_ENABLE_INSIGHTS=false` removes the overview, problem finder, statistics and similar tools.
 * `HA_ENABLE_SUPERVISOR=true` adds the add-on and host tools. In the restricted modes only their read tools appear.
@@ -590,6 +593,67 @@ This applies in control only mode and in full mode. Each call goes through these
 * **Building and editing automations, scripts and dashboards (Mode C):** both modes off. Do this deliberately, for a short job, and preferably with Claude rather than a local model.
 * **LM Studio or any local model:** avoid `HA_REQUIRE_APPROVAL_PROMPT` unless you know your client supports prompts. If it does not, every risky call is refused. That is safe, but it can look like the server is broken.
 * Settings such as `HA_URL`, `HA_TOKEN`, `HA_TIMEOUT_MS` and `HA_MAX_OUTPUT_CHARS` do not interact with any of the above.
+
+## Raw API tools: what they do and why they are off by default
+
+**What they do.** The four raw tools let the assistant send a request straight to Home Assistant's API, with no specific tool in between. They are a general purpose back door.
+
+Think of the normal tools as buttons on a remote. `search_entities` finds entities, `save_automation` saves an automation, `call_service` switches a light. Each button does one job and knows what to check first. The raw tools are more like a blank text box. The assistant types any address and command, Home Assistant answers, and the server passes the answer back.
+
+Home Assistant can be asked things in two ways, which is why there are four tools:
+
+| Tool | Style | What it does | Example |
+| --- | --- | --- | --- |
+| `ha_rest_read` | REST (web style addresses) | Fetches from any `/api/...` address | Fetch `/api/calendars` |
+| `ha_rest_write` | REST | Sends changes (POST, PUT, PATCH or DELETE) | Anything that changes something and has no dedicated tool |
+| `ha_ws_read` | WebSocket (named commands) | Sends any command that only looks | Read the energy preferences with `energy/get_prefs` |
+| `ha_ws_write` | WebSocket | Sends any other command | A change that no dedicated tool handles |
+
+**How they relate to the other tools.** Every tool in this server makes calls to Home Assistant's REST or WebSocket API underneath, because that is the only way to talk to Home Assistant. The dedicated tools are structured, safer wrappers around those same calls. Compared with a raw request, a dedicated tool checks its input, judges the risk, applies the approval step and the never touch list, saves a backup, and tidies the reply so the assistant gets something readable. The dedicated tools do not call the raw tools. They use the same underlying connection.
+
+**Why they exist.** Home Assistant has hundreds of API commands, and new ones appear over time. This server cannot have a dedicated tool for all of them. The raw tools mean nothing the API allows is out of reach, they let you or the assistant look at exactly what Home Assistant returns when you are diagnosing a problem, and they keep working when Home Assistant adds features this server does not know about yet.
+
+**Why they are off by default.**
+
+* **They are the most powerful tools here.** A freeform request can reach almost anything, so the server cannot judge its risk as precisely as it judges a typed tool call.
+* **Raw writes have no backup.** The dedicated config tools save the old version and can roll back. A raw write is a one way trip, and `restore_backup` cannot undo it.
+* **Most people never need them.** The other tools cover the usual jobs.
+* **Fewer tools means better results, especially for local models.** A smaller list is easier for a model to choose from, and it is one less way for a confused or manipulated model to do harm.
+* **The sensible default for a beta is the safe one.** You can turn them on later. You cannot take back something they have already done.
+
+**How they are fenced when they are on.**
+
+* **Reads:** a command only counts as a read if it is on a known list of read commands or follows a safe naming pattern. Anything the server does not recognise is treated as a write, never as a read.
+* **Writes:** both write tools are always high risk. They need a preview, a plan token and your confirmation every time.
+* **Steering back to the proper tools:** a raw write that tries to call a service or edit an automation is redirected to `call_service` or `save_automation`, so the safeguards cannot be skipped.
+* **Never touch list:** it is checked against every entity id found in the request.
+* **No automatic backup.** As above.
+
+**How they combine with the modes.**
+
+| Mode | `HA_ENABLE_RAW` off (default) | `HA_ENABLE_RAW` on |
+| --- | --- | --- |
+| A: Read only | no raw tools | the two read tools (`ha_rest_read`, `ha_ws_read`) |
+| B: Control only | no raw tools | the two read tools |
+| C: Full | no raw tools | all four, writes need approval |
+
+**When to turn them on.** When you have a specific job that the dedicated tools cannot do, you are using Claude rather than a local model, and you have a Home Assistant backup. Turn them on for that job, then turn them off again. In Claude Desktop, tick **Raw API tools**. In LM Studio, add `"HA_ENABLE_RAW": "true"` to `env`.
+
+## When something is not allowed
+
+If you ask the assistant for something your settings do not allow, it should tell you **why** and **which setting to change**, not just say it cannot. For example, ask for a new automation in Mode A and you should hear that Read only mode is on, and that you can turn it off (or move to Mode B for switching devices only).
+
+This works in two ways.
+
+* **A briefing when the server connects.** Tools that are switched off do not exist, so the assistant cannot try them and get refused. The server therefore tells the assistant up front which mode is on, which tool groups are off, which entities are protected, and exactly which settings would change that. It names both the Claude Desktop setting (for example "Read only mode") and the LM Studio name (for example `HA_READ_ONLY`). If nothing is restricted, there is no briefing.
+* **Refusal messages.** When a call is made and refused, the reply says what to change. This covers calls blocked by Control only mode, entities on the never touch list, and approval prompts that your client cannot show.
+
+Some things to know:
+
+* **The assistant cannot change settings.** Only you can, by editing the extension settings or the config file. The assistant is told to say so, and never to claim it changed one.
+* **Changes need a restart.** Settings are read when the server starts. In Claude Desktop, restart the extension. In LM Studio, switch the server off and on.
+* **It advises caution.** When a change would allow writes, the assistant is told to suggest taking a Home Assistant backup first. For Control only mode refusals it also reminds you that local models are less reliable at following safety rules.
+* **Quality depends on the model.** The briefing is only as good as the model that reads it. Claude handles it well. Small local models may ignore it or garble it. The setting names are in the briefing so you can look them up yourself in the [Settings reference](#settings-reference).
 
 ## How to use it
 
@@ -860,7 +924,9 @@ Examples of how to ask:
 * `restore_backup`: "Undo that last dashboard change."
 * `get_audit_log`: "What have you changed today?"
 
-### Raw API access (anything else)
+### Raw API access (anything else, off by default)
+
+These four tools only exist if you set `HA_ENABLE_RAW` to `"true"` (the "Raw API tools" box in Claude Desktop). Read [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) before doing that.
 
 | Tool | Risk | What it does | Inputs |
 | --- | --- | --- | --- |
@@ -912,7 +978,7 @@ None of this is a guarantee. The approval flow depends on the model and client b
 
 ## What has and has not been tested
 
-This is a beta. The automated suite (103 checks against an in-memory mock Home Assistant) passes. In addition, I ran it against a real Home Assistant 2026.10 Docker install: every read tool, and the write tools using throwaway items that were cleaned up afterwards.
+This is a beta. The automated suite (107 checks against an in-memory mock Home Assistant) passes. In addition, I ran it against a real Home Assistant 2026.10 Docker install: every read tool, and the write tools using throwaway items that were cleaned up afterwards.
 
 **Not yet tried on a real instance:**
 
@@ -965,6 +1031,7 @@ src/
   config.ts         Reads the settings
   ha-client.ts      REST client and the persistent WebSocket client
   safety.ts         Risk rules and the two step approval gate
+  settings-help.ts  Plain English help about which setting to change when something is not allowed
   plan.ts           Single use plan tokens
   audit.ts          Audit log
   backup.ts         Rollback store

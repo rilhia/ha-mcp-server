@@ -31,7 +31,7 @@ async function connect(env = {}, opts = {}) {
   const transport = new StdioClientTransport({
     command: "node",
     args: [process.env.MCP_ENTRY ?? path.join(root, "dist", "index.js")],
-    env: { ...process.env, HA_URL: mock.url, HA_TOKEN: TOKEN, HA_BACKUP_DIR: backupDir, HA_AUDIT_LOG: auditFile, ...env },
+    env: { ...process.env, HA_URL: mock.url, HA_TOKEN: TOKEN, HA_BACKUP_DIR: backupDir, HA_AUDIT_LOG: auditFile, HA_ENABLE_RAW: "true", ...env },
     stderr: "ignore",
   });
   const client = new Client({ name: "smoke", version: "1.0.0" }, opts.capabilities ? { capabilities: opts.capabilities } : undefined);
@@ -942,6 +942,72 @@ await t("supervisor tools explain themselves when no Supervisor exists", async (
   await c.close();
   assert.ok(r.isError);
   assert.match(r.raw, /Supervisor is not available/);
+});
+
+await t("raw API tools are off unless switched on", async () => {
+  // An empty value counts as "not set", so this exercises the real default.
+  const c = await connect({ HA_ENABLE_RAW: "" });
+  const n = (await c.listTools()).tools.map((x) => x.name);
+  await c.close();
+  for (const r of ["ha_ws_read", "ha_ws_write", "ha_rest_read", "ha_rest_write"]) assert.ok(!n.includes(r), `${r} must be off by default`);
+  assert.ok(n.includes("call_service") && n.includes("save_automation"));
+});
+
+await t("server instructions only mention the raw tools when they are switched on", async () => {
+  const off = await connect({ HA_ENABLE_RAW: "" });
+  const offText = off.getInstructions() ?? "";
+  await off.close();
+  assert.ok(!/ha_ws_read|ha_rest_write/.test(offText), "instructions must not mention raw tools when they are off");
+  const on = await connect({ HA_ENABLE_RAW: "true" });
+  const onText = on.getInstructions() ?? "";
+  await on.close();
+  assert.match(onText, /ha_ws_write/);
+  const roOn = await connect({ HA_ENABLE_RAW: "true", HA_READ_ONLY: "true" });
+  const roText = roOn.getInstructions() ?? "";
+  await roOn.close();
+  assert.ok(/ha_ws_read/.test(roText) && !/ha_ws_write/.test(roText));
+});
+
+console.log("Telling the user which setting to change");
+await t("the briefing explains what is off and how to turn it on, for each mode", async () => {
+  const ro = await connect({ HA_READ_ONLY: "true", HA_ENABLE_RAW: "" });
+  const roText = ro.getInstructions() ?? "";
+  await ro.close();
+  assert.match(roText, /Read only mode is ON/);
+  assert.match(roText, /HA_READ_ONLY/);
+  assert.match(roText, /Control only mode/);
+  assert.match(roText, /HA_ENABLE_RAW/, "off by default, so the briefing says how to turn raw on");
+  assert.match(roText, /cannot change settings yourself/);
+  const co = await connect({ HA_CONTROL_ONLY: "true", HA_NEVER_TOUCH: "lock.*" });
+  const coText = co.getInstructions() ?? "";
+  await co.close();
+  assert.match(coText, /Control only mode is ON/);
+  assert.match(coText, /HA_CONTROL_ONLY/);
+  assert.match(coText, /lock\.\*/);
+  assert.match(coText, /Never touch entities/);
+  // Fully open: nothing restrictive to say, so no settings briefing at all.
+  const full = await connect({ HA_ENABLE_RAW: "true", HA_ENABLE_SUPERVISOR: "true" });
+  const fullText = full.getInstructions() ?? "";
+  await full.close();
+  assert.ok(!/Current settings/.test(fullText), "no briefing when nothing is restricted");
+  const noCfg = await connect({ HA_ENABLE_CONFIG: "false" });
+  const noCfgText = noCfg.getInstructions() ?? "";
+  await noCfg.close();
+  assert.match(noCfgText, /HA_ENABLE_CONFIG/);
+});
+await t("refusals say what setting to change", async () => {
+  const co = await connect({ HA_CONTROL_ONLY: "true", HA_NEVER_TOUCH: "light.kitchen" });
+  const blocked = await call("call_service", { domain: "lock", service: "unlock", entity_id: "lock.front_door" }, co);
+  assert.equal(blocked.data.status, "blocked_control_only");
+  assert.match(blocked.data.message, /Control only mode/);
+  assert.match(blocked.data.message, /HA_CONTROL_ONLY/);
+  assert.match(blocked.data.message, /backup/);
+  assert.match(blocked.data.message, /cannot change this setting yourself/);
+  const nt = await call("call_service", { domain: "light", service: "turn_on", entity_id: "light.kitchen" }, co);
+  assert.equal(nt.data.status, "blocked_never_touch");
+  assert.match(nt.data.message, /Never touch entities/);
+  assert.match(nt.data.message, /HA_NEVER_TOUCH/);
+  await co.close();
 });
 
 console.log("Control only mode");
