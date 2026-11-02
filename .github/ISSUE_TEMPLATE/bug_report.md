@@ -9,7 +9,9 @@ about: Something does not work as expected
 
 **Home Assistant version and install type** (OS, Supervised, Container, Core):
 
-**Mode (A read only, B control only, C full, or edit only):**
+**Mode (A read only, B control only, C edit only, or D full access):**
+
+**Raw API tools or Supervisor tools switched on?** (yes or no, and which):
 
 **What you asked, and which tool was called:**
 

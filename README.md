@@ -6,7 +6,7 @@
 
 > **This is a beta, version 0.2.1.** It works well against a real Home Assistant 2026.10 instance, but some write paths have not been tried on real hardware (see [What has and has not been tested](#what-has-and-has-not-been-tested)). It starts in read only mode, so nothing can be changed until you decide otherwise. Keep backups of your Home Assistant, and report anything odd as a GitHub issue.
 
-A Model Context Protocol (MCP) server that lets an AI assistant look at your Home Assistant and, if you allow it, change it. **It starts in read only mode with 42 tools.** The number of tools depends on the mode you choose: 42 (read only), 43 (control only), 67 (edit only) and 68 (full access). The optional raw API tools add 2 or 4 more, and the optional Supervisor tools add up to 6 more, for a maximum of 78. Together they cover entities, areas, history, automations, scripts, helpers, dashboards, scenes, blueprints, integrations, repairs, diagnostics and a raw API escape hatch.
+A Model Context Protocol (MCP) server that lets an AI assistant look at your Home Assistant and, if you allow it, change it. **It starts in read only mode with 42 tools.** The number of tools depends on the mode you choose: 42 (read only), 43 (control only), 67 (edit only) and 68 (full access). The optional raw API tools add 2 more in Modes A, B and C, or 4 more in Mode D, and the optional Supervisor tools add up to 6 more, for a maximum of 78. Together they cover entities, areas, history, automations, scripts, helpers, dashboards, scenes, blueprints, integrations, repairs, diagnostics and a raw API escape hatch.
 
 It works with any MCP client that can launch a local program over stdio. This guide covers two of them in detail: **Claude Desktop** and **LM Studio**.
 
@@ -216,7 +216,7 @@ Things to know before you do this:
 
 ### Changing the mode later
 
-Change the two settings, restart, and start a new chat. The exact steps are in [Changing settings later](#changing-settings-later) for Claude Desktop and in [Switching between modes later](#switching-between-modes-later) for LM Studio. After every change, count the tools in a new chat to confirm the mode. You should see 42, 43, 67 or 68. Add 2 if the Raw API tools are on, or 4 in Mode D.
+Change the two settings, restart, and start a new chat. The exact steps are in [Changing settings later](#changing-settings-later) for Claude Desktop and in [Switching between modes later](#switching-between-modes-later) for LM Studio. After every change, count the tools in a new chat to confirm the mode. You should see 42, 43, 67 or 68. If the Raw API tools are on, add 2 for Modes A, B and C, or 4 for Mode D.
 
 ## Protect specific entities
 
@@ -380,7 +380,7 @@ Open Claude Desktop, go to Settings, then Extensions, choose **Home Assistant (f
 1. **Quit Claude Desktop completely and reopen it.** Closing the window is not enough, so use Quit (Cmd+Q on a Mac). The settings are handed to the server when it starts, and saving the form does not always restart it, so the old values can stay in use until the app is restarted.
 2. **Start a new chat.** An existing chat keeps the tools and instructions it was given when it began. That is how MCP works. The list of tools, and the briefing that tells the assistant which mode is on, are fixed for the life of a chat. An old chat can therefore keep behaving as it did under the old settings even after the server has changed. Chats started after the restart use the new settings.
 
-You can check that the new settings took effect by counting the tools in a new chat: 42, 43, 67 or 68 (add 2 if the Raw API tools are on, or 4 in Mode D).
+You can check that the new settings took effect by counting the tools in a new chat: 42, 43, 67 or 68 (if the Raw API tools are on, add 2 for Modes A, B and C, or 4 for Mode D).
 
 ## Set up in LM Studio
 
@@ -561,7 +561,7 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 }
 ```
 
-**Mode B: Control only (everyday use).** 43 tools. Compared with Mode A, `HA_ALLOW_CONTROL` is added and set to `"true"`.
+**Mode B: Control only (everyday use).** 43 tools. Compared with Mode A, `HA_ALLOW_CONTROL` is added and set to `"true"`. Mode B leaves the approval prompt on. If your client cannot show prompts, as LM Studio may not, calls the server treats as high risk (appliance style plugs, for example) are refused, and everything else still works. Switching `HA_REQUIRE_APPROVAL_PROMPT` off is explained in [Turning on Mode D](#turning-on-mode-d-be-careful), and it applies here too.
 
 ```json
 {
@@ -1219,7 +1219,7 @@ Every tool is classified as read, low risk, dynamic (decided per call) or high r
 
 * **Access modes.** Modes A, B and C work by not registering the tools the mode does not allow, so they cannot be bypassed by clever prompting. In Mode B, `call_service` is also restricted to an allow list of everyday device domains. See [Choose how much access to give](#choose-how-much-access-to-give).
 * **Two step approval for high risk actions.** High risk includes locks, alarms, climate, water heaters, valves, garage and gate covers, appliance like switches, restarts, deletes, overwrites, anything that targets a whole area or all entities, and any script, automation or scene that contains one of these. The preview returns a plan and a single use token bound to the tool and the exact arguments. It expires after 10 minutes and cannot be replayed.
-* **Human approval prompt.** If the client supports MCP elicitation, a prompt asks you directly before a high risk action runs. `HA_REQUIRE_APPROVAL_PROMPT` is on by default, which makes that mandatory, and clients that cannot show prompts are refused.
+* **Human approval prompt.** If the client supports MCP elicitation (the part of the MCP specification that lets a server ask the user a question), a prompt asks you directly before a high risk action runs. `HA_REQUIRE_APPROVAL_PROMPT` is on by default, which makes that mandatory, and clients that cannot show prompts are refused.
 * **Never touch list.** `HA_NEVER_TOUCH` patterns are never changed, even with approval, and saved automations that reference them are refused.
 * **Validation, backup and rollback.** Config writes are checked locally, by Home Assistant, and again by a configuration check. The old version is saved, and a failed check after a write reverts the change.
 * **Audit log.** Every non read call, including previews and refusals, is written to a JSONL file. `get_audit_log` reads it back. Tokens and credentials are never stored.
