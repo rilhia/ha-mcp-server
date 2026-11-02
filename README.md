@@ -542,14 +542,22 @@ A fresh file contains `{ "mcpServers": {} }`.
 
 Put an entry for the server inside `mcpServers`. Use the example for the mode you chose. The four examples differ only in the `HA_ALLOW_CONTROL`, `HA_ALLOW_EDIT` and `HA_REQUIRE_APPROVAL_PROMPT` lines. Every setting you leave out gets its safe default, so a config with neither `HA_ALLOW_CONTROL` nor `HA_ALLOW_EDIT` is Mode A. Replace the paths, address and token with your own.
 
+**The paths in these examples are placeholders, not real paths.** Every path that contains `/EXAMPLE/CHANGE/ME/` must be replaced with a path from your own computer, or the server will not start. The same goes for the address and token. Do not copy them as they are.
+
+| Line | What it is | What to put there |
+| --- | --- | --- |
+| `"command"` | The full path to the Node.js program on your computer | The answer you wrote down in Step 1 from `which node` (macOS and Linux) or `where node` (Windows). It will look different on every machine. Typical results are `/opt/homebrew/bin/node` (a Mac with Homebrew), `/usr/local/bin/node`, or `C:/Program Files/nodejs/node.exe` (Windows). |
+| `"args"` | The full path to the server's `dist/index.js` file | The path you wrote down in Step 4, ending in `dist/index.js`. It depends on the folder where you unpacked the server. |
+| `"HA_URL"` and `"HA_TOKEN"` | Your Home Assistant address and your long lived access token | Your own address and token. |
+
 **Mode A: Read only (start here).** 42 tools. There is no `HA_ALLOW_CONTROL` or `HA_ALLOW_EDIT` line. Leaving both out is what makes it read only.
 
 ```json
 {
   "mcpServers": {
     "home-assistant": {
-      "command": "/opt/homebrew/bin/node",
-      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "command": "/EXAMPLE/CHANGE/ME/bin/node",
+      "args": ["/EXAMPLE/CHANGE/ME/home-assistant/dist/index.js"],
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
@@ -567,8 +575,8 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 {
   "mcpServers": {
     "home-assistant": {
-      "command": "/opt/homebrew/bin/node",
-      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "command": "/EXAMPLE/CHANGE/ME/bin/node",
+      "args": ["/EXAMPLE/CHANGE/ME/home-assistant/dist/index.js"],
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
@@ -587,8 +595,8 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 {
   "mcpServers": {
     "home-assistant": {
-      "command": "/opt/homebrew/bin/node",
-      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "command": "/EXAMPLE/CHANGE/ME/bin/node",
+      "args": ["/EXAMPLE/CHANGE/ME/home-assistant/dist/index.js"],
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
@@ -608,8 +616,8 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 {
   "mcpServers": {
     "home-assistant": {
-      "command": "/opt/homebrew/bin/node",
-      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "command": "/EXAMPLE/CHANGE/ME/bin/node",
+      "args": ["/EXAMPLE/CHANGE/ME/home-assistant/dist/index.js"],
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
@@ -624,11 +632,11 @@ Put an entry for the server inside `mcpServers`. Use the example for the mode yo
 }
 ```
 
-**On Windows**, only the first two lines inside the entry change. Use forward slashes, which work everywhere and avoid escaping problems:
+**On Windows**, only the first two lines inside the entry change. Use forward slashes, which work everywhere and avoid escaping problems. As above, these paths are placeholders, so replace them with your own:
 
 ```json
-      "command": "C:/Program Files/nodejs/node.exe",
-      "args": ["C:/mcp-servers/home-assistant/dist/index.js"],
+      "command": "C:/EXAMPLE/CHANGE/ME/node.exe",
+      "args": ["C:/EXAMPLE/CHANGE/ME/home-assistant/dist/index.js"],
 ```
 
 If the file already has other servers in it, add `"home-assistant": { ... }` alongside them, with a comma between entries. Do not paste a second `"mcpServers"` block.
@@ -640,7 +648,7 @@ If the file already has other servers in it, add `"home-assistant": { ... }` alo
 * Use straight quotes `"`, not curly quotes from a word processor.
 * Lists, such as `HA_NEVER_TOUCH`, are **one string with the items separated by commas**. Do not use a JSON array.
 * On Windows, use forward slashes in paths, or double every backslash (`C:\\mcp-servers\\...`).
-* **Use the full path to Node in `command`.** On a Mac in particular, LM Studio is launched from the Dock and does not see the PATH from your terminal, so a bare `"node"` often fails with "spawn node ENOENT". The full path from `which node` avoids that. If you use nvm, use the full path it printed, for example `/Users/yourname/.nvm/versions/node/v20.11.0/bin/node`, and update it if you change Node versions.
+* **Use the full path to Node in `command`.** On a Mac in particular, LM Studio is launched from the Dock and does not see the PATH from your terminal, so a bare `"node"` often fails with "spawn node ENOENT". The full path from `which node` avoids that. If you use nvm, use the full path it printed, for example `/Users/yourname/.nvm/versions/node/v20.11.0/bin/node` (an example only, yours will differ), and update it if you change Node versions.
 
 All the other settings you can add to `env` are in the [Settings reference](#settings-reference). A complete example with every setting is at the end of this section.
 
@@ -690,8 +698,8 @@ This is for reference. It is **not** a recommended setup, since several values a
 {
   "mcpServers": {
     "home-assistant": {
-      "command": "/opt/homebrew/bin/node",
-      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "command": "/EXAMPLE/CHANGE/ME/bin/node",
+      "args": ["/EXAMPLE/CHANGE/ME/home-assistant/dist/index.js"],
       "env": {
         "HA_URL": "http://192.168.1.50:8123",
         "HA_TOKEN": "eyJhbGciOi...your_long_token...",
@@ -705,8 +713,8 @@ This is for reference. It is **not** a recommended setup, since several values a
         "HA_ENABLE_SUPERVISOR": "false",
         "HA_IGNORE_UNAVAILABLE": "sensor.old_*",
         "HA_INSECURE_TLS": "false",
-        "HA_BACKUP_DIR": "/Users/yourname/.ha-mcp-server/backups",
-        "HA_AUDIT_LOG": "/Users/yourname/.ha-mcp-server/audit.jsonl",
+        "HA_BACKUP_DIR": "/EXAMPLE/CHANGE/ME/ha-mcp-backups",
+        "HA_AUDIT_LOG": "/EXAMPLE/CHANGE/ME/ha-mcp-audit.jsonl",
         "HA_TIMEOUT_MS": "30000",
         "HA_MAX_OUTPUT_CHARS": "20000"
       }
