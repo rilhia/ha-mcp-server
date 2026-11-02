@@ -2,26 +2,31 @@
 
 > **This is a beta, version 0.2.1.** It works well against a real Home Assistant 2026.10 instance, but some write paths have not been tried on real hardware (see [What has and has not been tested](#what-has-and-has-not-been-tested)). Please start in read only mode, keep backups of your Home Assistant, and report anything odd as a GitHub issue.
 
-A Model Context Protocol (MCP) server that lets an AI assistant look at, understand and (if you allow it) change your Home Assistant. It has 72 tools by default (44 of them in read only mode, and 78 with the optional Supervisor group switched on), covering entities, areas, history, automations, scripts, helpers, dashboards, scenes, blueprints, integrations, repairs, diagnostics and a raw API escape hatch.
+A Model Context Protocol (MCP) server that lets an AI assistant look at, understand and (if you allow it) change your Home Assistant. It has 72 tools by default (44 of them in read only mode, 45 in control only mode, and 78 with the optional Supervisor group switched on), covering entities, areas, history, automations, scripts, helpers, dashboards, scenes, blueprints, integrations, repairs, diagnostics and a raw API escape hatch.
 
 It works with any MCP client that can launch a local program over stdio, for example Claude Desktop and LM Studio.
 
 ## Contents
 
-1. [Read this first: read only mode](#read-this-first-read-only-mode)
-2. [What it can do](#what-it-can-do)
-3. [Install in Claude Desktop](#install-in-claude-desktop)
-4. [Explode the MCPB and run it by hand](#explode-the-mcpb-and-run-it-by-hand)
-5. [Use it with LM Studio](#use-it-with-lm-studio)
-6. [Configuration reference](#configuration-reference)
-7. [How to use it](#how-to-use-it)
-8. [The tools, one by one](#the-tools-one-by-one)
-9. [Safety model](#safety-model)
-10. [What has and has not been tested](#what-has-and-has-not-been-tested)
-11. [Build from source](#build-from-source)
-12. [Troubleshooting](#troubleshooting)
-13. [Project layout](#project-layout)
-14. [Licence](#licence)
+1. [Tested with](#tested-with)
+2. [Read this first: read only mode](#read-this-first-read-only-mode)
+3. [What it can do](#what-it-can-do)
+4. [Install in Claude Desktop](#install-in-claude-desktop)
+5. [Explode the MCPB and run it by hand](#explode-the-mcpb-and-run-it-by-hand)
+6. [Use it with LM Studio](#use-it-with-lm-studio)
+7. [Configuration reference](#configuration-reference)
+8. [How to use it](#how-to-use-it)
+9. [The tools, one by one](#the-tools-one-by-one)
+10. [Safety model](#safety-model)
+11. [What has and has not been tested](#what-has-and-has-not-been-tested)
+12. [Build from source](#build-from-source)
+13. [Troubleshooting](#troubleshooting)
+14. [Project layout](#project-layout)
+15. [Licence](#licence)
+
+## Tested with
+
+Home Assistant 2026.10.1 (Container install, Docker). Other versions are untested, so older releases may behave differently.
 
 ## Read this first: read only mode
 
@@ -31,13 +36,36 @@ With it on, every tool that could change anything is not registered at all. The 
 
 My advice: **install it, leave read only on, and explore for a while.** Only turn it off when you know what you want to do with it.
 
+### Control only mode: switch things on and off, nothing else
+
+If read only is too strict, there is a middle setting called **control only mode** (`HA_CONTROL_ONLY=true`, or the "Control only mode" checkbox in Claude Desktop). It is meant for everyday use by a basic user.
+
+| | Read only | Control only | Full (neither set) |
+| --- | --- | --- | --- |
+| Look at everything | yes | yes | yes |
+| Switch lights, plugs, fans, blinds and media players | no | **yes** | yes |
+| Create, edit or delete automations, scripts, scenes and helpers | no | no | yes |
+| Change dashboards, areas, labels, devices or integrations | no | no | yes |
+| Restart or stop Home Assistant | no | no | yes |
+| Locks, alarms and heating | no | no | yes, with approval |
+| Raw API write tools | no | no | yes, with approval |
+| Tools available | 44 | 45 | 72 |
+
+In control only mode, every tool that can edit or break something is not registered, exactly as in read only mode. The one writing tool left is `call_service`, and it is limited to these everyday domains: `light`, `switch`, `fan`, `cover`, `media_player`, `humidifier`, `vacuum`, `remote`, `button`, `number`, `select`, `scene` (activating only), `input_boolean`, `input_button`, `input_number` and `input_select` (values only).
+
+Anything else is refused outright, with no approval route. That includes locks, alarm panels, climate, scripts, automations, notifications, restarting Home Assistant, and services that change how things are set up (reload, create, delete, apply, and editing dropdown options). Targeting by label is also refused. The generic `homeassistant.turn_on`, `turn_off` and `toggle` are allowed, but only for named entities in the everyday domains.
+
+Calls that are allowed but risky, such as switching a washing machine plug or a whole area at once, still go through the normal two step approval. The never touch list still applies. If you tick both read only and control only, **read only wins**.
+
+This is the recommended mode once you have finished exploring in read only mode and you just want to say "turn off the kitchen light".
+
 ### A serious warning for LM Studio and other local models
 
 The safeguards in this server (preview first, single use plan tokens, the never touch list, backups) are good, but they rely on the model following instructions and on the client showing you what is going on. Claude is trained to respect those instructions. Many local models are not reliable at this. They can misread a plan, repeat a confirmation call on their own, invent entity names, or get talked into things by text they find inside your Home Assistant (an entity name, a calendar entry, a log line).
 
 If you use this with LM Studio or any local model:
 
-* **Keep `HA_READ_ONLY=true`.** Treat it as the normal way to run it.
+* **Keep `HA_READ_ONLY=true`.** Treat it as the normal way to run it. If you want it to switch lights and plugs, use `HA_CONTROL_ONLY=true` instead, which still blocks every change to automations, scripts and settings.
 * If you really must turn it off, be very careful. Do it for a short, specific task, then switch it back on.
 * Put anything you could not bear to have changed on the never touch list (`HA_NEVER_TOUCH`), for example `lock.*`, `alarm_control_panel.*`, `cover.garage_*`.
 * Turn on `HA_REQUIRE_APPROVAL_PROMPT` only if your client supports MCP approval prompts. LM Studio may not, in which case high risk actions will simply be refused, which is the safe outcome.
@@ -66,71 +94,189 @@ Roughly, in plain English:
 3. Fill in the form:
    * **Home Assistant URL**, for example `http://192.168.1.50:8123` (no trailing slash needed).
    * **Long-lived access token.** In Home Assistant, click your profile (bottom left), open the Security tab, scroll to the bottom and create a long-lived access token. The token is kept in your operating system keychain.
-   * **Read only mode**: leave ticked to start with.
+   * **Read only mode**: tick this to start with. It is **not** ticked by default.
+   * **Control only mode**: tick this instead if you want it to switch lights and devices but not change any settings. See [Control only mode](#control-only-mode-switch-things-on-and-off-nothing-else).
 4. Start a new chat and ask: "Check you can reach Home Assistant."
 
 Claude Desktop shows the server's log if something goes wrong. The first log line tells you which URL it is using and how long the token is (never the token itself).
 
 ## Explode the MCPB and run it by hand
 
-An `.mcpb` file is just a zip file with a `manifest.json` and the program inside. You can open it up and run the server yourself, which is what you need to do for LM Studio or any other client.
+An `.mcpb` file is just a zip file with a different name. Inside is a `manifest.json` and the compiled server with all its dependencies. Claude Desktop opens it for you, but any other client (LM Studio, for example) needs you to open it yourself and point the client at the files. This section shows how, step by step.
 
-**Option A: with the MCPB tool**
+### Step 1: Make sure Node.js is installed
 
-```bash
-npx @anthropic-ai/mcpb unpack home-assistant-mcp-0.2.1.mcpb ha-mcp
-```
-
-**Option B: with any unzip tool**
+The server is a Node.js program. You need **Node.js 18.17 or newer**.
 
 ```bash
-mkdir ha-mcp
-cd ha-mcp
-unzip ../home-assistant-mcp-0.2.1.mcpb
+node --version
 ```
 
-On Windows you can rename the file to `.zip` and use Extract All.
+If you see `v18.17.0` or higher, you are fine. If the command is not found, or the version is older, install the current LTS version from https://nodejs.org and open a new terminal.
 
-You will end up with a folder like this:
+Now find out **exactly where Node lives**, because you will need that path later:
+
+```bash
+which node          # macOS and Linux
+where node          # Windows
+```
+
+Write down the answer. Typical results are `/opt/homebrew/bin/node` (Mac with Homebrew), `/usr/local/bin/node`, or `C:\Program Files\nodejs\node.exe` (Windows).
+
+### Step 2: Choose a permanent folder
+
+Pick a folder where the server can live **permanently**. LM Studio will launch it from there every time, so do not use Downloads or the Desktop, and do not move it later without updating the config. Good choices:
+
+| System | Suggested folder |
+| --- | --- |
+| macOS | `/Users/yourname/mcp-servers/home-assistant` |
+| Linux | `/home/yourname/mcp-servers/home-assistant` |
+| Windows | `C:\mcp-servers\home-assistant` |
+
+Create it:
+
+```bash
+# macOS and Linux
+mkdir -p ~/mcp-servers/home-assistant
+```
+
+```powershell
+# Windows PowerShell
+mkdir C:\mcp-servers\home-assistant
+```
+
+### Step 3: Unpack the .mcpb into that folder
+
+Download `home-assistant-mcp-0.2.1.mcpb` from the GitHub release page. Then use **one** of these methods.
+
+**Method A: the MCPB tool (any system with Node)**
+
+```bash
+npx @anthropic-ai/mcpb unpack ~/Downloads/home-assistant-mcp-0.2.1.mcpb ~/mcp-servers/home-assistant
+```
+
+**Method B: unzip (macOS and Linux)**
+
+```bash
+unzip ~/Downloads/home-assistant-mcp-0.2.1.mcpb -d ~/mcp-servers/home-assistant
+```
+
+**Method C: Windows**
+
+1. Copy `home-assistant-mcp-0.2.1.mcpb` somewhere handy.
+2. Rename it to `home-assistant-mcp-0.2.1.zip`. (If you cannot see the `.mcpb` ending, turn on "File name extensions" in the File Explorer View menu.)
+3. Right click it, choose **Extract All**, and pick `C:\mcp-servers\home-assistant`.
+
+### Step 4: Check the result
+
+The folder should now contain these items directly inside it, not inside an extra subfolder:
 
 ```
-ha-mcp/
+home-assistant/
   manifest.json        what the bundle is and which settings it takes
   package.json
-  dist/index.js        the server itself (this is what you run)
+  README.md
+  LICENSE
+  dist/
+    index.js           the server itself. This is the file LM Studio will run.
   node_modules/        the dependencies, already installed
 ```
 
-Everything needed is in there, so there is no `npm install` step. You only need **Node.js 18.17 or newer** (`node --version` to check).
+If you see `home-assistant/home-assistant-mcp-0.2.1/dist/index.js` or similar, the files went into an extra folder. Either move them up one level, or just use the longer path in the later steps. What matters is that you know the full path to `dist/index.js`.
 
-Test it from a terminal:
+There is **no `npm install` step**. Everything is already in the bundle.
+
+Work out the full path to `dist/index.js` and write it down. On a Mac or Linux you can print it with:
 
 ```bash
-cd ha-mcp
-HA_URL=http://192.168.1.50:8123 HA_TOKEN=your_token HA_READ_ONLY=true node dist/index.js
+cd ~/mcp-servers/home-assistant
+echo "$(pwd)/dist/index.js"
 ```
 
-It prints a few lines to the terminal (they go to stderr) like `[ha-mcp] v0.2.1 ready with ... (READ ONLY mode)` and then waits silently, because it is waiting for an MCP client to talk to it. Press Ctrl+C to stop it.
+### Step 5: Create a Home Assistant access token
+
+Make a token just for this server, so you can revoke it separately without affecting anything else.
+
+1. In Home Assistant, click your name at the bottom left of the sidebar to open your profile.
+2. Open the **Security** tab.
+3. Scroll to the very bottom, to **Long-lived access tokens**, and click **Create token**.
+4. Name it something like `MCP server (LM Studio)`.
+5. **Copy the token immediately.** Home Assistant only shows it once.
+
+### Step 6: Try it from a terminal first
+
+This checks that Node, the files, your address and your token all work, before LM Studio is involved. Use your own values.
+
+macOS and Linux:
+
+```bash
+cd ~/mcp-servers/home-assistant
+HA_URL="http://192.168.1.50:8123" HA_TOKEN="paste_token_here" HA_READ_ONLY="true" node dist/index.js
+```
+
+Windows PowerShell:
+
+```powershell
+cd C:\mcp-servers\home-assistant
+$env:HA_URL="http://192.168.1.50:8123"
+$env:HA_TOKEN="paste_token_here"
+$env:HA_READ_ONLY="true"
+node dist/index.js
+```
+
+You should see lines like these (they appear on the error stream, which is normal):
+
+```
+[ha-mcp] using HA_URL=http://192.168.1.50:8123 (websocket ws://192.168.1.50:8123/api/websocket), token length 183
+[ha-mcp] v0.2.1 ready with 44 tools for http://192.168.1.50:8123 (READ ONLY mode)
+[ha-mcp] connected to Home Assistant 2026.10.1 (Home)
+```
+
+Then it sits there silently. That is correct: it is waiting for an MCP client to talk to it. Press **Ctrl+C** to stop it.
+
+If the third line says `WARNING: cannot reach Home Assistant`, or you see a 401 error, fix that now using the [Troubleshooting](#troubleshooting) section before going on.
 
 ## Use it with LM Studio
 
-LM Studio (0.3.17 or later) can run local MCP servers. Please read the [warning above](#a-serious-warning-for-lm-studio-and-other-local-models) first.
+LM Studio (version 0.3.17 or later) can run local MCP servers. Please read the [warning above](#a-serious-warning-for-lm-studio-and-other-local-models) first. **Keep `HA_READ_ONLY` set to `"true"`.**
 
-1. Explode the bundle as above and note the full path to `dist/index.js`.
-2. In LM Studio, open the **Program** tab on the right of the chat window and choose **Install**, then **Edit mcp.json**. (The file is `~/.lmstudio/mcp.json` on macOS and Linux, and `%USERPROFILE%\.lmstudio\mcp.json` on Windows.)
-3. Add an entry like this:
+You need to have done the steps in the previous section, so that you have:
+
+* the full path to `node`
+* the full path to `dist/index.js`
+* your Home Assistant address
+* your long-lived access token
+
+### Step 1: Open LM Studio's MCP config file
+
+1. In LM Studio, open a chat.
+2. Open the **Program** tab in the right hand sidebar (the plug icon).
+3. Click **Install**, then **Edit mcp.json**.
+
+This opens `mcp.json` in LM Studio's built in editor. The file lives here if you want to find it yourself:
+
+| System | Location |
+| --- | --- |
+| macOS and Linux | `~/.lmstudio/mcp.json` |
+| Windows | `%USERPROFILE%\.lmstudio\mcp.json` |
+
+A fresh file contains `{ "mcpServers": {} }`.
+
+### Step 2: Add the server
+
+Put an entry for the server inside `mcpServers`. Start with this **safe starting configuration**. Replace the four values marked with angle brackets.
 
 ```json
 {
   "mcpServers": {
     "home-assistant": {
-      "command": "node",
-      "args": ["/full/path/to/ha-mcp/dist/index.js"],
+      "command": "<FULL PATH TO NODE>",
+      "args": ["<FULL PATH TO dist/index.js>"],
       "env": {
-        "HA_URL": "http://192.168.1.50:8123",
-        "HA_TOKEN": "your_long_lived_token",
+        "HA_URL": "<YOUR HOME ASSISTANT ADDRESS>",
+        "HA_TOKEN": "<YOUR TOKEN>",
         "HA_READ_ONLY": "true",
-        "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*",
+        "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
         "HA_ENABLE_RAW": "false"
       }
     }
@@ -138,17 +284,188 @@ LM Studio (0.3.17 or later) can run local MCP servers. Please read the [warning 
 }
 ```
 
-4. Save the file. LM Studio starts the server and the tools appear in the Program tab. Switch the server on for the chat you want to use it in.
-5. Use a model that is good at tool calling. Small models often call the wrong tool or invent entity ids. If a model struggles, turn off whole groups you do not need (`HA_ENABLE_CONFIG`, `HA_ENABLE_INSIGHTS`, `HA_ENABLE_RAW` set to `false`) so it has fewer tools to choose from.
-6. On Windows, use forward slashes or doubled backslashes in the path (`C:/Users/me/ha-mcp/dist/index.js`).
+Here is the same thing filled in, for a Mac with Homebrew Node:
 
-Notes:
+```json
+{
+  "mcpServers": {
+    "home-assistant": {
+      "command": "/opt/homebrew/bin/node",
+      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "env": {
+        "HA_URL": "http://192.168.1.50:8123",
+        "HA_TOKEN": "eyJhbGciOi...your_long_token...",
+        "HA_READ_ONLY": "true",
+        "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
+        "HA_ENABLE_RAW": "false"
+      }
+    }
+  }
+}
+```
 
-* The token is stored in plain text in `mcp.json`. Anyone who can read that file can control your Home Assistant, so protect it, and create a token just for this use so you can revoke it independently.
-* If your Home Assistant is on a different machine, make sure the URL is reachable from the computer running LM Studio.
-* **Do not change `HA_READ_ONLY` to `false` casually.** If you do, restart the server, test with something harmless (a single light), and keep the never touch list populated.
+And for Windows (note the forward slashes, which work everywhere and avoid escaping problems):
 
-Other MCP clients (Cursor, Cline, Continue and so on) use the same idea: a `command` of `node`, an `args` entry that points at `dist/index.js`, and the settings as `env` values.
+```json
+{
+  "mcpServers": {
+    "home-assistant": {
+      "command": "C:/Program Files/nodejs/node.exe",
+      "args": ["C:/mcp-servers/home-assistant/dist/index.js"],
+      "env": {
+        "HA_URL": "http://192.168.1.50:8123",
+        "HA_TOKEN": "eyJhbGciOi...your_long_token...",
+        "HA_READ_ONLY": "true",
+        "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
+        "HA_ENABLE_RAW": "false"
+      }
+    }
+  }
+}
+```
+
+If the file already has other servers in it, add `"home-assistant": { ... }` alongside them, with a comma between entries. Do not paste a second `"mcpServers"` block.
+
+### Rules for the JSON file
+
+JSON is strict, and one mistake stops the whole file loading.
+
+* **Every value is a string in double quotes**, including the true and false ones. Write `"HA_READ_ONLY": "true"`, never `true` without the quotes.
+* No comments, and no comma after the last item in a block.
+* Use straight quotes `"`, not curly quotes from a word processor.
+* Lists, such as `HA_NEVER_TOUCH`, are **one string with the items separated by commas**. Do not use a JSON array.
+* On Windows, use forward slashes in paths, or double every backslash (`C:\\mcp-servers\\...`).
+* **Use the full path to Node in `command`.** On a Mac in particular, LM Studio is launched from the Dock and does not see the PATH from your terminal, so a bare `"node"` often fails with "spawn node ENOENT". The full path from `which node` avoids that. If you use nvm, use the full path it printed, for example `/Users/yourname/.nvm/versions/node/v20.11.0/bin/node`, and update it if you change Node versions.
+
+### Step 3: Save and switch it on
+
+1. Save the file (Cmd+S or Ctrl+S).
+2. LM Studio reloads its MCP servers. In the Program tab you should see `home-assistant` with a toggle.
+3. Switch the toggle on for the chat you want to use it in. Click the server to see its tools. In read only mode you should see **44 tools** (45 in control only mode). If you see 72 you are not in a restricted mode, so stop and check `HA_READ_ONLY` and `HA_CONTROL_ONLY`.
+4. Choose a model that supports **tool use** (LM Studio marks these with a hammer icon).
+5. Ask: "Check you can reach Home Assistant." The first time a tool is called, LM Studio asks you to approve the call. Read what it wants to do, and approve.
+
+### Every setting you can put in `env`
+
+All of these are optional apart from `HA_URL` and `HA_TOKEN`. Every value must be a string.
+
+| Name | Example value | What it does | Default if left out |
+| --- | --- | --- | --- |
+| `HA_URL` | `"http://192.168.1.50:8123"` | Your Home Assistant address. Include the port. A trailing slash is removed for you. **Required.** | none |
+| `HA_TOKEN` | `"eyJhbGciOi..."` | Your long-lived access token. **Required.** | none |
+| `HA_READ_ONLY` | `"true"` | `"true"` removes every tool that could change anything. **Always set this explicitly.** | **`false`, meaning writes are ON if you leave it out** |
+| `HA_CONTROL_ONLY` | `"true"` | Lets the model switch lights, plugs, fans, blinds and media players, but removes every tool that edits automations, scripts, helpers, dashboards, scenes or settings. Ignored when `HA_READ_ONLY` is `"true"`. | `"false"` |
+| `HA_NEVER_TOUCH` | `"lock.*,alarm_control_panel.*"` | Entities that can never be changed, even with approval. `*` matches anything. | empty |
+| `HA_HIGH_RISK_ENTITIES` | `"switch.workshop_*,light.garage_*"` | Extra entities that always need the two step approval. | empty |
+| `HA_HIGH_RISK_DOMAINS` | `"vacuum,media_player"` | Extra service domains to treat as high risk. | empty |
+| `HA_REQUIRE_APPROVAL_PROMPT` | `"true"` | Makes a human approval prompt mandatory for risky actions. If the client cannot show one, the action is refused. | `"false"` |
+| `HA_ENABLE_CONFIG` | `"false"` | Turns off the dashboards, registries, scenes, blueprints and integrations tools. | `"true"` |
+| `HA_ENABLE_INSIGHTS` | `"false"` | Turns off the overview, problem finder, statistics, calendar and similar tools. | `"true"` |
+| `HA_ENABLE_RAW` | `"false"` | Turns off the four raw API tools. **Recommended for local models.** | `"true"` |
+| `HA_ENABLE_SUPERVISOR` | `"true"` | Adds the add-on and host tools. Only for Home Assistant OS or Supervised. | `"false"` |
+| `HA_IGNORE_UNAVAILABLE` | `"sensor.old_*,switch.spare_*"` | Entities `find_problems` and the overview should not report as unavailable. | empty |
+| `HA_INSECURE_TLS` | `"true"` | Skips certificate checks. Only for an `https://` address with a self-signed certificate. | `"false"` |
+| `HA_BACKUP_DIR` | `"/Users/yourname/ha-backups"` | Where rollback copies are saved. | `~/.ha-mcp-server/backups` |
+| `HA_AUDIT_LOG` | `"/Users/yourname/ha-audit.jsonl"` | Where the audit log is written. | `audit.jsonl` beside the backups folder |
+| `HA_TIMEOUT_MS` | `"30000"` | How long to wait for Home Assistant before giving up, in milliseconds. | `"30000"` |
+| `HA_MAX_OUTPUT_CHARS` | `"40000"` | The largest single tool reply, in characters. Lower it for models with small context windows. | `"40000"` |
+
+Boolean settings accept `"true"`, `"1"`, `"yes"` or `"on"` as yes. Anything else counts as no.
+
+### An everyday setup: switch things on and off, but nothing else
+
+Once you are happy with read only mode and want the model to control lights, plugs and so on, use control only mode. Change `HA_READ_ONLY` to `"false"` (or remove it) and add `HA_CONTROL_ONLY`:
+
+```json
+"env": {
+  "HA_URL": "http://192.168.1.50:8123",
+  "HA_TOKEN": "eyJhbGciOi...your_long_token...",
+  "HA_READ_ONLY": "false",
+  "HA_CONTROL_ONLY": "true",
+  "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
+  "HA_ENABLE_RAW": "false"
+}
+```
+
+In the Program tab you should see **45 tools**. The model can read everything and switch everyday devices, but cannot edit automations, scripts, scenes, helpers, dashboards or settings. The log line says `(CONTROL ONLY mode)`. If you see 72, the setting has not taken effect.
+
+### A complete example with every setting
+
+This is for reference. It is **not** a recommended setup, since several values are the defaults. Delete the lines you do not need.
+
+```json
+{
+  "mcpServers": {
+    "home-assistant": {
+      "command": "/opt/homebrew/bin/node",
+      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "env": {
+        "HA_URL": "http://192.168.1.50:8123",
+        "HA_TOKEN": "eyJhbGciOi...your_long_token...",
+        "HA_READ_ONLY": "true",
+        "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
+        "HA_HIGH_RISK_ENTITIES": "switch.workshop_*",
+        "HA_HIGH_RISK_DOMAINS": "vacuum",
+        "HA_CONTROL_ONLY": "false",
+        "HA_REQUIRE_APPROVAL_PROMPT": "false",
+        "HA_ENABLE_CONFIG": "true",
+        "HA_ENABLE_INSIGHTS": "true",
+        "HA_ENABLE_RAW": "false",
+        "HA_ENABLE_SUPERVISOR": "false",
+        "HA_IGNORE_UNAVAILABLE": "sensor.old_*",
+        "HA_INSECURE_TLS": "false",
+        "HA_BACKUP_DIR": "/Users/yourname/.ha-mcp-server/backups",
+        "HA_AUDIT_LOG": "/Users/yourname/.ha-mcp-server/audit.jsonl",
+        "HA_TIMEOUT_MS": "30000",
+        "HA_MAX_OUTPUT_CHARS": "20000"
+      }
+    }
+  }
+}
+```
+
+### Getting the best results from a local model
+
+* **Pick a model that is good at tool calling.** Small models often choose the wrong tool, invent entity names or give up. Larger instruction-tuned models do much better.
+* **Give the model a big context window.** The server describes up to 72 tools, which takes a lot of space before you even ask a question. Set a context length of at least 16,000 tokens in LM Studio, and more if you can.
+* **Reduce the number of tools.** Fewer tools means fewer mistakes. A good small setup is read only with `HA_ENABLE_RAW` and `HA_ENABLE_CONFIG` both `"false"`. That leaves the discovery, insights, automation reading and system tools.
+* **Lower `HA_MAX_OUTPUT_CHARS`** (for example to `"15000"`) if the model loses track in long answers.
+* **Ask specific questions.** "What is the temperature in the office?" works better than "How is my house?"
+
+### Turning full writes on (be careful)
+
+For everyday switching, use control only mode above. Only go further if you really need the model to create or edit automations, scripts, scenes, dashboards or settings. If so, follow all of these rules.
+
+1. Take a full Home Assistant backup first (Settings, System, Backups).
+2. Fill in `HA_NEVER_TOUCH` with every lock, alarm, garage door, gate, oven, heater or anything else you could not bear to have changed.
+3. Keep `HA_ENABLE_RAW` as `"false"`.
+4. Change `HA_READ_ONLY` to `"false"` and make sure `HA_CONTROL_ONLY` is not `"true"`, save, and restart the server (switch it off and on in the Program tab).
+5. Check the tool count has gone up to the 72 range, then try one harmless thing, such as turning a single lamp on and off.
+6. Read every plan the model shows you before agreeing to it. Do not let a local model approve its own plans.
+7. When the job is done, set `HA_READ_ONLY` back to `"true"`.
+
+### Notes
+
+* The token is stored as plain text in `mcp.json`. Anyone who can read that file can control your Home Assistant. Keep the file private, never post it online (including screenshots, forum posts and issues), and create a token just for this so you can delete it from Home Assistant at any time.
+* If Home Assistant is on a different machine, the address must be reachable from the computer running LM Studio. Test by opening the address in a browser on that computer.
+* The backups and audit log go in a hidden `.ha-mcp-server` folder in your home folder unless you change them.
+* To **update** to a newer version, unpack the new `.mcpb` over the same folder (or into a new one and change the path in `mcp.json`), then switch the server off and on.
+* To **remove** it, delete the `home-assistant` entry from `mcp.json`, delete the folder, and delete the token in Home Assistant.
+
+### If something does not work in LM Studio
+
+| What you see | Likely cause and fix |
+| --- | --- |
+| The server will not start, or `spawn node ENOENT` | `command` is wrong. Use the full path to Node from `which node`. |
+| `Cannot find module` and a path | The `args` path is wrong. Check that `dist/index.js` really exists at that path. |
+| `configuration error: HA_URL is not set` | The `env` block is missing or misspelled. |
+| `401 Unauthorized` | Token is wrong, was deleted, or came from a different Home Assistant. Make a new one. |
+| `Cannot reach Home Assistant` | Wrong address or port, or a firewall. Test the address in a browser. |
+| The file will not save, or shows red marks | A JSON mistake such as a missing comma, a curly quote, or a trailing comma. |
+| 72 tools appear when you expected 44 or 45 | `HA_READ_ONLY` is not `"true"` (or `HA_CONTROL_ONLY` is not `"true"`). If you left both out, full writes are on. |
+| The model ignores the tools or answers wildly | The model does not support tool use well. Try a larger model or fewer tools. |
+
+Other MCP clients (Cursor, Cline, Continue and so on) use the same idea: a `command` of `node` (preferably the full path), an `args` entry that points at `dist/index.js`, and the settings as `env` values.
 
 ## Configuration reference
 
@@ -158,7 +475,8 @@ These are environment variables. In Claude Desktop most are tick boxes and text 
 | --- | --- | --- |
 | `HA_URL` | yes | Home Assistant address, for example `http://192.168.1.50:8123` |
 | `HA_TOKEN` | yes | Long-lived access token |
-| `HA_READ_ONLY` | no | `true` registers only read only tools. **Recommended.** |
+| `HA_READ_ONLY` | no | `true` registers only read only tools. **Recommended.** If you leave it out, writes are ON. This is also the default in the Claude Desktop form, so tick it yourself. |
+| `HA_CONTROL_ONLY` | no | `true` allows switching everyday devices (lights, plugs, fans, blinds, media players) but registers no tool that edits automations, scripts, helpers, dashboards, scenes or settings. Ignored if `HA_READ_ONLY` is `true`. |
 | `HA_INSECURE_TLS` | no | `true` skips TLS verification (self-signed certificates) |
 | `HA_HIGH_RISK_ENTITIES` | no | Comma separated entity id patterns that always need the two step approval, for example `switch.workshop_*` |
 | `HA_HIGH_RISK_DOMAINS` | no | Extra service domains to treat as high risk |
@@ -209,7 +527,7 @@ The **Risk** column means:
 * **low**: changes something, but a mistake is minor and easy to fix. Runs straight away.
 * **gated**: can be dangerous, or is dangerous in some cases. Needs the two step approval (the assistant must preview first, and you must agree). Not available in read only mode.
 
-In read only mode, anything that is not marked **read** does not exist.
+In read only mode, anything that is not marked **read** does not exist. In control only mode the same is true, except for `call_service`, which is limited to everyday devices.
 
 
 ### Looking around (discovery)
@@ -483,6 +801,7 @@ Examples of how to ask:
 Every tool is classified as read, low risk, dynamic (decided per call) or high risk.
 
 * **Read only switch.** Described at the top. It is enforced at registration time, so it cannot be bypassed by clever prompting.
+* **Control only mode.** Described near the top. Like read only mode it works by not registering the tools, and `call_service` is restricted to an allow list of everyday device domains.
 * **Two step approval for high risk actions.** High risk includes locks, alarms, climate, water heaters, valves, garage and gate covers, appliance like switches, restarts, deletes, overwrites, anything that targets a whole area or all entities, and any script, automation or scene that contains one of these. The preview returns a plan and a single use token bound to the tool and the exact arguments. It expires after 10 minutes and cannot be replayed.
 * **Human approval prompt.** If the client supports MCP elicitation, a prompt can ask you directly before a high risk action runs. `HA_REQUIRE_APPROVAL_PROMPT=true` makes that mandatory, and clients that cannot show prompts are refused.
 * **Never touch list.** `HA_NEVER_TOUCH` patterns are never changed, even with approval, and saved automations that reference them are refused.
@@ -512,7 +831,7 @@ Known rough edge: on installs with many unavailable entities, `find_problems` ca
 You need Node.js 18.17 or newer.
 
 ```bash
-git clone https://github.com/YOUR-NAME/ha-mcp-server.git
+git clone https://github.com/rilhia/ha-mcp-server.git
 cd ha-mcp-server
 npm install
 npm test          # builds, checks the manifest, runs the end to end tests

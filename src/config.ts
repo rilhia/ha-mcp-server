@@ -20,6 +20,12 @@ export interface Config {
   insecureTls: boolean;
   /** When true, only read-only tools are registered. */
   readOnly: boolean;
+  // "Control only" mode, for everyday use. Every read tool is available, plus
+  // call_service restricted to everyday devices (lights, switches, fans, media
+  // players and so on). All tools that edit automations, scripts, helpers,
+  // dashboards, scenes, settings or the system itself are not registered.
+  // If readOnly is also on, readOnly wins.
+  controlOnly: boolean;
   // How long to wait for Home Assistant to answer before giving up.
   timeoutMs: number;
   // Folder where rollback copies are saved.
@@ -132,6 +138,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): Config {
     insecureTls: bool(env.HA_INSECURE_TLS, false),
     // Read only defaults to OFF here. The MCPB form can default it differently.
     readOnly: bool(env.HA_READ_ONLY, false),
+    // Control only is also OFF unless asked for. See the comment on the interface.
+    controlOnly: bool(env.HA_CONTROL_ONLY, false),
     timeoutMs: int(env.HA_TIMEOUT_MS, 30_000),
     backupDir,
     // Patterns are lowercased once here so the matching code does not have to.

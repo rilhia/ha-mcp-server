@@ -3,6 +3,7 @@
 // important cross cutting behaviour lives in ONE place instead of being copied into
 // dozens of tools:
 //   * read only mode (tools that can change things are simply not registered)
+//   * control only mode (the same, except call_service stays, limited to everyday devices)
 //   * tool hints that tell the client which tools are safe
 //   * the extra plan_token parameter on risky tools
 //   * running each tool inside the per call context the safety gate needs
@@ -77,6 +78,10 @@ function auditArgs(args: Record<string, unknown>): unknown {
 /** Register a tool. In read-only mode every tool that can mutate Home Assistant is skipped. */
 export function registerTool<S extends z.ZodRawShape>(server: McpServer, ctx: ToolContext, def: ToolDef<S>): void {
   if (ctx.cfg.readOnly && def.risk !== "read") return;
+  // Control only mode keeps the read tools and exactly one writing tool: call_service,
+  // which is itself restricted to everyday devices (see controlModeViolation in
+  // safety.ts). Everything else that could change a setting simply does not exist.
+  if (ctx.cfg.controlOnly && def.risk !== "read" && def.name !== "call_service") return;
   registeredToolNames.push(def.name);
 
   // Risky tools get an extra optional 'plan_token' parameter added to their schema, so

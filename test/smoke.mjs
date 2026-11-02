@@ -944,6 +944,67 @@ await t("supervisor tools explain themselves when no Supervisor exists", async (
   assert.match(r.raw, /Supervisor is not available/);
 });
 
+console.log("Control only mode");
+const co = await connect({ HA_CONTROL_ONLY: "true" });
+await t("control only registers the read tools plus call_service and nothing else that writes", async () => {
+  const { tools } = await co.listTools();
+  const names = tools.map((x) => x.name);
+  assert.ok(names.includes("call_service") && names.includes("search_entities") && names.includes("get_audit_log"));
+  for (const n of ["save_automation", "delete_automation", "save_script", "reload_automations", "create_helper", "update_helper", "ha_ws_write", "ha_rest_write", "manage_registry", "save_dashboard", "save_scene", "import_blueprint", "manage_config_entry", "restart_home_assistant", "stop_home_assistant", "restore_backup"]) {
+    assert.ok(!names.includes(n), `${n} must not be registered in control only mode`);
+  }
+  // Every registered tool except call_service must be a read tool.
+  assert.ok(tools.filter((x) => x.name !== "call_service").every((x) => x.annotations.readOnlyHint === true));
+});
+await t("control only still switches a light on and off", async () => {
+  const before = mock.serviceCalls.length;
+  const r = await call("call_service", { domain: "light", service: "turn_on", entity_id: "light.kitchen" }, co);
+  assert.equal(r.data.executed, true, r.raw);
+  assert.equal(mock.serviceCalls.length, before + 1);
+  const h = await call("call_service", { domain: "homeassistant", service: "turn_off", entity_id: "light.kitchen" }, co);
+  assert.equal(h.data.executed, true, h.raw);
+});
+await t("control only refuses anything that is not everyday device control", async () => {
+  const before = mock.serviceCalls.length;
+  const cases = [
+    { domain: "automation", service: "trigger", entity_id: "automation.morning_lights" },
+    { domain: "script", service: "turn_on", entity_id: "script.harmless" },
+    { domain: "lock", service: "unlock", entity_id: "lock.front_door" },
+    { domain: "climate", service: "set_temperature", entity_id: "climate.upper_hall", data: { temperature: 20 } },
+    { domain: "homeassistant", service: "restart" },
+    { domain: "homeassistant", service: "turn_off", entity_id: "automation.morning_lights" },
+    { domain: "homeassistant", service: "turn_off", target: { area_id: "kitchen" } },
+    { domain: "scene", service: "apply" },
+    { domain: "scene", service: "reload" },
+    { domain: "light", service: "turn_off", entity_id: "automation.morning_lights" },
+    { domain: "light", service: "turn_off", target: { label_id: "everything" } },
+  ];
+  for (const c of cases) {
+    const r = await call("call_service", c, co);
+    assert.equal(r.data.status, "blocked_control_only", `${c.domain}.${c.service} should be blocked: ${r.raw}`);
+    assert.equal(r.isError, true);
+  }
+  assert.equal(mock.serviceCalls.length, before, "no blocked call may reach Home Assistant");
+});
+await t("control only keeps the normal approval step for risky but allowed calls", async () => {
+  const before = mock.serviceCalls.length;
+  const r = await call("call_service", { domain: "switch", service: "turn_on", entity_id: "switch.washing_machine" }, co);
+  assert.equal(r.data.executed, false, r.raw);
+  assert.ok(r.data.plan_token);
+  assert.equal(mock.serviceCalls.length, before);
+});
+await t("control only mentions itself in the server instructions", async () => {
+  const text = co.getInstructions?.() ?? "";
+  assert.match(text, /Control only mode is ON/);
+});
+await co.close();
+await t("read only wins when both read only and control only are on", async () => {
+  const both = await connect({ HA_READ_ONLY: "true", HA_CONTROL_ONLY: "true" });
+  const names = (await both.listTools()).tools.map((x) => x.name);
+  await both.close();
+  assert.ok(!names.includes("call_service"));
+});
+
 await mock.close();
 fs.rmSync(backupDir, { recursive: true, force: true });
 console.log(`\n${passed} passed, ${failures.length} failed`);

@@ -28,6 +28,7 @@
         "HA_URL": "${user_config.ha_url}",
         "HA_TOKEN": "${user_config.ha_token}",
         "HA_READ_ONLY": "${user_config.read_only}",
+        "HA_CONTROL_ONLY": "${user_config.control_only}",
         "HA_INSECURE_TLS": "${user_config.insecure_tls}",
         "HA_HIGH_RISK_ENTITIES": "${user_config.high_risk_entities}",
         "HA_NEVER_TOUCH": "${user_config.never_touch_entities}",
@@ -58,6 +59,13 @@
       "type": "boolean",
       "title": "Read only mode",
       "description": "Only register tools that cannot change anything. Recommended for a first try.",
+      "default": false,
+      "required": false
+    },
+    "control_only": {
+      "type": "boolean",
+      "title": "Control only mode",
+      "description": "Everyday use. Can read everything and switch lights, switches, fans, covers and media players, but cannot change automations, scripts, scenes, helpers, dashboards or settings. Ignored if Read only mode is ticked.",
       "default": false,
       "required": false
     },

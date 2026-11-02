@@ -312,6 +312,79 @@ export async function assessServiceCall(
   };
 }
 
+// CONTROL ONLY MODE
+// -----------------
+// In control only mode call_service is the one writing tool left, and this is the
+// rule book that keeps it to everyday jobs. The idea: a basic user should be able
+// to switch things on and off, and nothing else. Anything that could change how the
+// house is set up, or that touches security, is refused outright, with no
+// confirmation route.
+
+// The service domains an everyday user may call. Notice what is NOT here: lock,
+// alarm_control_panel, climate, water_heater, valve, siren, camera, notify, script,
+// automation, homeassistant (handled separately below), hassio, shell_command,
+// python_script, rest_command, recorder, backup and anything else that is about
+// configuration or security rather than switching things.
+export const CONTROL_ONLY_DOMAINS = new Set([
+  "light", "switch", "fan", "cover", "media_player", "humidifier", "vacuum", "remote",
+  "button", "number", "select", "scene",
+  "input_boolean", "input_button", "input_number", "input_select",
+]);
+
+// Service names that change how something is set up rather than operating it, so they
+// are refused even inside an allowed domain. For example input_select.set_options
+// rewrites a dropdown helper, and scene.apply can set ANY entity (even an automation).
+const CONTROL_ONLY_BLOCKED_SERVICES = new Set([
+  "reload", "reload_all", "set_options", "create", "delete", "apply", "remove",
+]);
+
+// homeassistant.turn_on, turn_off and toggle are the generic versions that work on any
+// entity, so they are allowed, but only for named entities in the allowed domains.
+const CONTROL_ONLY_GENERIC_SERVICES = new Set(["turn_on", "turn_off", "toggle"]);
+
+// Returns a plain English reason if this call is not allowed in control only mode, or
+// undefined if it is fine. It does not look at risk. Risky but allowed calls (such as
+// a whole area at once) still go through the normal two step approval afterwards.
+/** Why a service call is refused in control only mode, or undefined when it is allowed. */
+export function controlModeViolation(
+  cfg: Config,
+  domain: string,
+  service: string,
+  target: ServiceTarget
+): string | undefined {
+  if (!cfg.controlOnly || cfg.readOnly) return undefined;
+  if (CONTROL_ONLY_BLOCKED_SERVICES.has(service)) {
+    return `${domain}.${service} changes how things are set up, which is not allowed in control only mode.`;
+  }
+  // The generic homeassistant services work on any entity, so we check each named one.
+  if (domain === "homeassistant") {
+    if (!CONTROL_ONLY_GENERIC_SERVICES.has(service)) {
+      return `homeassistant.${service} is not allowed in control only mode. Only turn_on, turn_off and toggle are.`;
+    }
+    if (target.area_ids.length || target.device_ids.length || target.label_ids.length || !target.entity_ids.length) {
+      return "homeassistant.turn_on, turn_off and toggle need named entities in control only mode, not areas, devices or labels.";
+    }
+    const bad = target.entity_ids.filter((e) => !CONTROL_ONLY_DOMAINS.has(domainOf(e)));
+    if (bad.length) {
+      return `These entities are not everyday devices, so they cannot be controlled in control only mode: ${bad.join(", ")}.`;
+    }
+    return undefined;
+  }
+  if (!CONTROL_ONLY_DOMAINS.has(domain)) {
+    return `The "${domain}" service domain is not allowed in control only mode. Allowed: ${[...CONTROL_ONLY_DOMAINS].join(", ")}.`;
+  }
+  // Labels cannot be fully resolved in advance, so they could hide something unexpected.
+  if (target.label_ids.length) {
+    return "Targeting by label is not allowed in control only mode. Name the entities, or use an area.";
+  }
+  // A named entity from another domain (for example an automation passed to light.turn_off) is refused too.
+  const bad = target.entity_ids.filter((e) => e !== "all" && domainOf(e) !== domain);
+  if (bad.length) {
+    return `${domain}.${service} was given entities from other domains (${bad.join(", ")}), which is not allowed in control only mode.`;
+  }
+  return undefined;
+}
+
 // Checks the never-touch list. These patterns are an absolute block: even with
 // confirmation, nothing here will change them.
 /** Entities from the list that match a configured never-touch pattern. */

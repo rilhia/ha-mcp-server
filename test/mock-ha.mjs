@@ -114,7 +114,7 @@ export async function startMock() {
     { domain: "switch", services: { turn_on: { name: "Turn on", fields: {} }, turn_off: { name: "Turn off", fields: {} } } },
     { domain: "script", services: { turn_on: { name: "Turn on", fields: {} }, reload: { name: "Reload", fields: {} }, goodnight: { name: "Goodnight", fields: {} } } },
     { domain: "automation", services: { reload: { name: "Reload", fields: {} }, trigger: { name: "Trigger", fields: {} } } },
-    { domain: "homeassistant", services: { restart: { name: "Restart", fields: {} }, stop: { name: "Stop", fields: {} } } },
+    { domain: "homeassistant", services: { restart: { name: "Restart", fields: {} }, stop: { name: "Stop", fields: {} }, turn_on: { name: "Turn on", fields: {} }, turn_off: { name: "Turn off", fields: {} } } },
   ];
 
   const json = (res, code, body) => {

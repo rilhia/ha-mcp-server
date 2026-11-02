@@ -12,7 +12,7 @@
 //   5. Only then actually call Home Assistant.
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import { assessServiceCall, evaluateGate, neverTouchHits, type ServiceTarget } from "../safety.js";
+import { assessServiceCall, controlModeViolation, evaluateGate, neverTouchHits, type ServiceTarget } from "../safety.js";
 import { ToolOutcome, asArray } from "../util.js";
 import { defineTool, registerTool, type ToolContext } from "./registry.js";
 
@@ -84,6 +84,16 @@ const callService = defineTool({
     if (target.area_ids.length) data.area_id = target.area_ids;
     if (target.device_ids.length) data.device_id = target.device_ids;
     if (target.label_ids.length) data.label_id = target.label_ids;
+
+    // Control only mode: refuse anything outside everyday device control, before we do
+    // any further work. There is no confirmation route for these, they are simply not allowed.
+    const notAllowed = controlModeViolation(ctx.cfg, domain, service, target);
+    if (notAllowed) {
+      return new ToolOutcome(
+        { status: "blocked_control_only", executed: false, message: `${notAllowed} (HA_CONTROL_ONLY is on.)` },
+        true
+      );
+    }
 
     // Collect any fields the service marks as required that were not supplied, so we can give a clear error before calling.
     const missing = Object.entries(def.fields ?? {})

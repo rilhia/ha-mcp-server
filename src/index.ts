@@ -67,6 +67,9 @@ Workflow guidance:
 - Config writes are validated before saving, backed up automatically, and returned with a rollback receipt. restore_backup undoes a change.
 - To debug a failing automation, use get_automation_trace, get_error_log and get_logbook.`;
 
+// Only added when control only mode is on. It tells the model what it can and cannot do.
+const CONTROL_ONLY_NOTE = `Control only mode is ON. You can read everything and use call_service for everyday devices such as lights, switches, fans, covers, media players and helper toggles. You cannot create, edit or delete automations, scripts, scenes, helpers, dashboards, registries, integrations or settings, and you cannot restart Home Assistant. Locks, alarms, climate and similar domains cannot be controlled. If asked to do something outside this, say it is not available in control only mode.`;
+
 async function main(): Promise<void> {
   // Step 1: settings. If they are wrong we want to say so immediately and exit,
   // rather than limp along and fail mysteriously on the first tool call.
@@ -91,7 +94,10 @@ async function main(): Promise<void> {
   // The "context" is the bundle of shared things that every tool receives.
   const ctx: ToolContext = { ha, cfg, backups: new BackupStore(cfg.backupDir), audit: new AuditLog(cfg.auditPath) };
 
-  const server = new McpServer({ name: "home-assistant", version: version() }, { instructions: INSTRUCTIONS });
+  // In control only mode we add one extra paragraph so the model knows the rules up front
+  // instead of finding out by being refused.
+  const instructions = cfg.controlOnly && !cfg.readOnly ? `${INSTRUCTIONS}\n${CONTROL_ONLY_NOTE}` : INSTRUCTIONS;
+  const server = new McpServer({ name: "home-assistant", version: version() }, { instructions });
 
   // Step 3: register the tools. Core groups are always registered. Note that when
   // read only mode is on, the registry quietly skips every tool that could change
@@ -121,7 +127,7 @@ async function main(): Promise<void> {
   await server.connect(transport);
 
   console.error(
-    `[ha-mcp] v${version()} ready with ${registeredToolNames.length} tools for ${cfg.url}${cfg.readOnly ? " (READ ONLY mode)" : ""}`
+    `[ha-mcp] v${version()} ready with ${registeredToolNames.length} tools for ${cfg.url}${cfg.readOnly ? " (READ ONLY mode)" : cfg.controlOnly ? " (CONTROL ONLY mode)" : ""}`
   );
 
   // Non blocking connectivity check so problems show up in the client logs immediately.
