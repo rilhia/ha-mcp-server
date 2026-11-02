@@ -12,25 +12,35 @@ It works with any MCP client that can launch a local program over stdio. This gu
 
 **Tested with:** Home Assistant 2026.10.1 (Container install, Docker). Other versions are untested, so older releases may behave differently.
 
+## Quick start
+
+1. **Get your Home Assistant address and a token.** See [Before you start](#before-you-start).
+2. **Install it.** For Claude Desktop, drag the `.mcpb` file into Settings, then Extensions ([Set up in Claude Desktop](#set-up-in-claude-desktop)). For LM Studio, unpack the file and edit `mcp.json` ([Set up in LM Studio](#set-up-in-lm-studio)).
+3. **Enter your address and token, and leave everything else alone.** You start in Mode A, read only. The assistant can look at your home but cannot change anything.
+4. **Try it.** Ask "Give me an overview of the house."
+5. **When you want it to do things, choose a mode.** See [Choose how much access to give](#choose-how-much-access-to-give).
+6. **Protect your important entities first.** See [Protect specific entities](#protect-specific-entities).
+
 ## Contents
 
 1. [What it can do](#what-it-can-do)
 2. [Choose how much access to give](#choose-how-much-access-to-give)
-3. [Before you start](#before-you-start)
-4. [Set up in Claude Desktop](#set-up-in-claude-desktop)
-5. [Set up in LM Studio](#set-up-in-lm-studio)
-6. [Settings reference](#settings-reference)
-7. [How the settings work together](#how-the-settings-work-together)
-8. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default)
-9. [When something is not allowed](#when-something-is-not-allowed)
-10. [How to use it](#how-to-use-it)
-11. [The tools, one by one](#the-tools-one-by-one)
-12. [Safety model](#safety-model)
-13. [What has and has not been tested](#what-has-and-has-not-been-tested)
-14. [Build from source](#build-from-source)
-15. [Troubleshooting](#troubleshooting)
-16. [Project layout](#project-layout)
-17. [Licence](#licence)
+3. [Protect specific entities](#protect-specific-entities)
+4. [Before you start](#before-you-start)
+5. [Set up in Claude Desktop](#set-up-in-claude-desktop)
+6. [Set up in LM Studio](#set-up-in-lm-studio)
+7. [Settings reference](#settings-reference)
+8. [How the settings work together](#how-the-settings-work-together)
+9. [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default)
+10. [When something is not allowed](#when-something-is-not-allowed)
+11. [How to use it](#how-to-use-it)
+12. [The tools, one by one](#the-tools-one-by-one)
+13. [Safety model](#safety-model)
+14. [What has and has not been tested](#what-has-and-has-not-been-tested)
+15. [Build from source](#build-from-source)
+16. [Troubleshooting](#troubleshooting)
+17. [Project layout](#project-layout)
+18. [Licence](#licence)
 
 ## What it can do
 
@@ -50,7 +60,7 @@ Which of these the assistant can actually do depends on the mode you choose. By 
 
 ## Choose how much access to give
 
-Decide this before you install anything. The server has four access modes, and the rest of this guide refers to them by letter. You choose a mode with two settings. In Claude Desktop they are two tick boxes. In LM Studio and other clients they are two values in the config file. Both are off by default, and that gives you Mode A, which can only look.
+You do not have to decide this straight away. If you change nothing, you get Mode A, which can only look. The server has four access modes, and the rest of this guide refers to them by letter. You choose a mode with two settings. In Claude Desktop they are two tick boxes. In LM Studio and other clients they are two values in the config file. Both are off by default, and that gives you Mode A, which can only look.
 
 ### The two access settings
 
@@ -128,7 +138,13 @@ The dashboards and insight tool groups are on by default. They are not a risk on
 
 * **Best for:** everyday use by someone who wants the assistant to run their devices.
 * **What it can do:** everything in Mode A, plus operate everyday devices. That covers more than switching on and off. It includes brightness and colour, fan speed, opening and closing blinds, the volume and track on a media player, starting a vacuum, setting a helper's value and activating a scene. These are the allowed service domains: `light`, `switch`, `fan`, `cover`, `media_player`, `humidifier`, `vacuum`, `remote`, `button`, `number`, `select`, `scene` (activating only), `input_boolean`, `input_button`, `input_number` and `input_select` (values only).
-* **What it cannot do:** operate locks, alarm panels, heating and cooling, water heaters, valves, scripts, automations or notifications. It cannot change any setup, so tools for automations, scripts, helpers, dashboards, settings and restarting do not exist. It cannot use services that change how something is set up (`reload`, `create`, `delete`, `apply`, `remove` and `set_options`), and it cannot target devices by label. The generic `homeassistant.turn_on`, `turn_off` and `toggle` work only on named entities in the allowed domains. Anything outside these limits is refused outright, with no approval route.
+* **What it cannot do:**
+  * Operate locks, alarm panels, heating and cooling, water heaters, valves, scripts, automations or notifications.
+  * Change any setup. The tools for automations, scripts, helpers, dashboards, settings and restarting do not exist in this mode.
+  * Use services that change how something is set up (`reload`, `create`, `delete`, `apply`, `remove` and `set_options`).
+  * Target devices by label. Name the entities, or use an area.
+  * Use the generic `homeassistant.turn_on`, `turn_off` and `toggle` on anything except named entities in the allowed domains.
+  * Anything outside these limits is refused outright, with no approval route.
 * **Approval:** calls that are allowed but risky, such as switching a washing machine plug or a whole area at once, still need the preview and confirm steps. The never touch list always applies. Blinds and covers are allowed, so put garage doors and gates on the never touch list.
 * **How to turn it on:** tick Allow controlling devices only.
 * **Tools:** 43, or 45 with the Raw API tools on.
@@ -155,39 +171,91 @@ The dashboards and insight tool groups are on by default. They are not a risk on
 * **How to turn it on:** tick both boxes. Read [Turning on Mode D](#turning-on-mode-d-be-careful) first if you use LM Studio.
 * **Tools:** 68, or 72 with the Raw API tools on.
 
-### How the access modes work with the other settings
-
-* **Never touch entities** and **Extra high risk entities** apply in every mode that can change something (B, C and D). They can only make things stricter and never widen what a mode allows.
-* **Require an approval prompt** is on by default. It applies to risky but allowed calls in Mode B, and to every high risk action in Modes C and D.
-* **Raw API tools** are off by default. When switched on, Modes A, B and C get only the two raw read tools. The two raw write tools appear only in Mode D, because they can send any service call.
-* **Dashboards, registries, scenes, blueprints and integrations** can remove tools that Mode C or D would otherwise have.
-* **Insight tools** are all read tools, so they work the same in every mode.
-* **Supervisor tools** add their read tools in every mode. Their write tools need Mode C or D.
-
-### How the limits are enforced
-
-There are two layers, and the first is the strongest.
-
-1. **Tools that a mode does not allow do not exist.** When the server starts, it registers only the tools the mode allows. The assistant cannot call a tool it was never given, so no wording of a request can bring one back. The `call_service` tool exists only when Allow controlling devices is ticked. Every other tool that can change something exists only when Allow editing setup is ticked. The two raw write tools need both.
-2. **In Mode B, `call_service` checks every call against the list of everyday devices.** Anything outside the list is refused. In Mode D that list does not apply, and every call goes through the normal risk assessment and approval steps instead.
-
 ### Changing the mode later
 
 Change the two settings, restart, and start a new chat. The exact steps are in [Changing settings later](#changing-settings-later) for Claude Desktop and in [Switching between modes later](#switching-between-modes-later) for LM Studio. After every change, count the tools in a new chat to confirm the mode. You should see 42, 43, 67 or 68. Add 2 if the Raw API tools are on, or 4 in Mode D.
 
-### A serious warning for LM Studio and other local models
+## Protect specific entities
 
-The safeguards in this server (preview first, single use plan tokens, the never touch list and backups) are good, but they rely on the model following instructions and on the client showing you what is going on. Claude is trained to respect those instructions. Many local models are not reliable at this. They can misread a plan, repeat a confirmation call on their own, invent entity names, or get talked into things by text they find inside your Home Assistant, such as an entity name, a calendar entry or a log line.
+Two optional settings let you protect particular devices. They only matter once your mode can change things (Modes B, C and D), and they are the best protection you have, so set them up before you move beyond Mode A.
 
-If you use this with LM Studio or any local model:
+An entity is one thing in Home Assistant, such as a light, a lock or a switch. Every entity has an entity ID, which is a type, a dot and a name, for example `light.kitchen` or `lock.front_door`. Both settings work on entity IDs.
 
-* Use Mode A. Treat it as the normal way to run it. If you want it to operate lights and plugs, use Mode B, which still blocks every change to automations, scripts and settings.
-* If you really must use Mode C or D, be very careful. Do it for a short, specific task, then switch back.
-* Put anything you could not bear to have changed on the never touch list (`HA_NEVER_TOUCH`), for example `lock.*`, `alarm_control_panel.*` and `cover.garage_*`.
-* `HA_REQUIRE_APPROVAL_PROMPT` is on by default. If your client does not support MCP approval prompts, which LM Studio may not, high risk actions are refused. That is the safe outcome. Do not switch it off to fix that unless you understand that the model's own preview and confirm step is then the only check.
-* Take a full Home Assistant backup first.
-* Leave the raw API tools off. They are off by default (`HA_ENABLE_RAW` is not set), and they are the most powerful and least guarded part. See [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default).
-* Never leave a model that can make changes running unattended.
+### The two settings
+
+| | Never touch entities | Extra high risk entities |
+| --- | --- | --- |
+| Claude Desktop box | Never touch entities | Extra high risk entities |
+| LM Studio setting | `HA_NEVER_TOUCH` | `HA_HIGH_RISK_ENTITIES` |
+| Default | Empty | Empty |
+| What happens | The assistant can never change it, even if you approve | The assistant can change it, but only after a preview, your confirmation and the approval prompt |
+| Can the assistant still look at it? | Yes | Yes |
+| Use it for | Things you could not bear to have changed, such as locks, alarms and garage doors | Things you are happy to change but want to check first, such as a workshop socket or a pool pump |
+
+Some detail on each:
+
+* **Never touch** is an absolute block. The call is refused straight away, and there is no way to approve it. It also catches indirect changes. An area command that includes a protected entity is refused. So is a device target that includes one. Automations, scripts and scenes that use a protected entity cannot be saved.
+* **Extra high risk** adds to the built in rules and never loosens them. Locks, alarms, heating, garage doors and anything with an appliance style name already need approval. This setting adds your own entities to that group. In Mode B it makes those calls need the preview and confirm steps. It does not block them.
+* These settings only limit what this server can do. They do not change Home Assistant itself, so existing automations carry on running as normal.
+* In Mode A nothing can be changed, so neither setting has any effect. It does no harm to fill them in ahead of time.
+
+### How to write the entries
+
+Write entity IDs separated by commas. A `*` matches any run of characters. A `?` matches exactly one character. Capital letters do not matter, and spaces after the commas are fine. The whole entity ID has to match, not just part of it.
+
+| Entry | What it matches |
+| --- | --- |
+| `lock.front_door` | Exactly that one entity |
+| `lock.*` | Every lock |
+| `alarm_control_panel.*` | Every alarm panel |
+| `cover.garage_*` | Every cover whose name starts with `garage_`, such as `cover.garage_door` |
+| `switch.*_heater` | Every switch whose name ends with `_heater`, such as `switch.office_heater` |
+| `light.hall_?` | `light.hall_1` and `light.hall_2`, but not `light.hall_10` |
+| `*` | Everything. Never use this. |
+
+To find an entity ID, open Home Assistant, go to Settings, then Devices and services, then Entities. Each entity has an Entity ID. If you do not see that column, use the table's column settings to show it, or click an entity and open its settings to see the ID. You can also ask the assistant, for example "Find my garage door".
+
+### How to enter them
+
+In Claude Desktop, type or paste the entries into the box, separated by commas:
+
+```
+lock.*, alarm_control_panel.*, cover.garage_*, cover.gate_*
+```
+
+In LM Studio, add one line to the `env` block. It is a single string in double quotes, with commas between the entries. Do not use a JSON array.
+
+```json
+"HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
+"HA_HIGH_RISK_ENTITIES": "switch.workshop_*,switch.washing_machine"
+```
+
+Change the examples to match your own entity IDs. A sensible starting point is to put locks, alarm panels, garage doors and gates on the never touch list, and any appliance or workshop socket you want to double check on the extra high risk list.
+
+LM Studio users can also set `HA_HIGH_RISK_DOMAINS`, which makes every entity of a whole type high risk, for example `"vacuum,media_player"`. It is not in the Claude Desktop form.
+
+### What it looks like in use
+
+Say `cover.garage_*` is on the never touch list and you are in Mode B. You ask "Open the garage door." The assistant tries, the server refuses, and the assistant tells you the entity is on the never touch list, names the setting (Never touch entities, or `HA_NEVER_TOUCH`) and says you would have to remove it from the list to allow the change.
+
+Say `switch.workshop_*` is on the extra high risk list. You ask "Turn on the workshop heater." The assistant first shows you a plan and asks whether to go ahead. After you say yes, and accept the approval prompt, it runs.
+
+### Check that it works
+
+1. Add a harmless entity to the never touch list, such as `light.desk_lamp`.
+2. Restart Claude Desktop (or switch the LM Studio server off and on) and start a new chat.
+3. In Mode B or D, ask the assistant to turn the lamp on. It should refuse and name the setting.
+4. Remove the entry and restart again, so you can use the lamp normally.
+
+You can also ask "Which entities are protected from changes?" The assistant is told which patterns are protected when it connects, so it should be able to list them.
+
+### Common mistakes
+
+* **Using the name instead of the entity ID.** "Garage Door" does nothing. Use the ID, such as `cover.garage_door`.
+* **Getting the type wrong.** The type is singular. Write `light.*`, not `lights.*`.
+* **Using a JSON array in LM Studio.** Use one string with commas.
+* **Forgetting to restart.** Settings are read when the server starts, and old chats keep the old settings. Restart, then start a new chat.
+* **Protecting too much.** `light.*` on the never touch list stops the assistant switching any light at all.
 
 ## Before you start
 
@@ -241,7 +309,7 @@ The form has 13 settings. Only the first two are required. Every setting is expl
 Notes on the table:
 
 * **Settings 3 and 4 choose the mode.** If you tick neither, you get Mode A. The form can only show tick boxes, so the four modes are made from these two boxes. See [Choose how much access to give](#choose-how-much-access-to-give).
-* **Setting 7, Never touch entities,** is where you list your locks, alarms, garage doors and gates, for example `lock.*, alarm_control_panel.*, cover.garage_*, cover.gate_*`.
+* **Settings 6 and 7 protect specific entities.** Never touch entities is where you list your locks, alarms, garage doors and gates, for example `lock.*, alarm_control_panel.*, cover.garage_*, cover.gate_*`. Extra high risk entities is for things you want to double check. See [Protect specific entities](#protect-specific-entities).
 * **Setting 8, the approval prompt,** is on by default. If a risky action is refused because Claude cannot show a prompt, you can untick it, but then the preview and confirm steps are the only check.
 * **Setting 12, Supervisor tools,** only works on Home Assistant OS or Supervised. Leave it off for Docker or Core installs.
 
@@ -264,7 +332,21 @@ You can check that the new settings took effect by counting the tools in a new c
 
 LM Studio (version 0.3.17 or later) can run local MCP servers, but it cannot open an `.mcpb` file. You unpack ("explode") the file into a folder, then point LM Studio at the server inside. This is one continuous set of steps, so follow them in order.
 
-Read the [warning for local models](#a-serious-warning-for-lm-studio-and-other-local-models) first, and start with Mode A.
+### A serious warning for LM Studio and other local models
+
+The safeguards in this server (preview first, single use plan tokens, the never touch list and backups) are good, but they rely on the model following instructions and on the client showing you what is going on. Claude is trained to respect those instructions. Many local models are not reliable at this. They can misread a plan, repeat a confirmation call on their own, invent entity names, or get talked into things by text they find inside your Home Assistant, such as an entity name, a calendar entry or a log line.
+
+If you use this with LM Studio or any local model:
+
+* Use Mode A. Treat it as the normal way to run it. If you want it to operate lights and plugs, use Mode B, which still blocks every change to automations, scripts and settings.
+* If you really must use Mode C or D, be very careful. Do it for a short, specific task, then switch back.
+* Put anything you could not bear to have changed on the never touch list (`HA_NEVER_TOUCH`), for example `lock.*`, `alarm_control_panel.*` and `cover.garage_*`.
+* `HA_REQUIRE_APPROVAL_PROMPT` is on by default. If your client does not support MCP approval prompts, which LM Studio may not, high risk actions are refused. That is the safe outcome. Do not switch it off to fix that unless you understand that the model's own preview and confirm step is then the only check.
+* Take a full Home Assistant backup first.
+* Leave the raw API tools off. They are off by default (`HA_ENABLE_RAW` is not set), and they are the most powerful and least guarded part. See [Raw API tools: what they do and why they are off by default](#raw-api-tools-what-they-do-and-why-they-are-off-by-default).
+* Never leave a model that can make changes running unattended.
+
+Whatever you decide, start with Mode A.
 
 ### Step 1: Install Node.js and find where it lives
 
@@ -619,8 +701,8 @@ Notes for the `env` names:
 | 3 | Allow controlling devices | `HA_ALLOW_CONTROL` | Off | Lets the assistant operate devices. On its own it is Mode B. With the next setting it is Mode D. |
 | 4 | Allow editing setup | `HA_ALLOW_EDIT` | Off | Lets the assistant change automations, scripts, scenes, helpers, dashboards and settings. On its own it is Mode C. With the setting above it is Mode D. |
 | 5 | Allow self signed certificates | `HA_INSECURE_TLS` | Off | Skips certificate checks. Only for an `https://` address with a self-signed certificate. |
-| 6 | Extra high risk entities | `HA_HIGH_RISK_ENTITIES` | Empty | Entities that always need the two step approval. |
-| 7 | Never touch entities | `HA_NEVER_TOUCH` | Empty | Entities that can never be changed, even with approval. |
+| 6 | Extra high risk entities | `HA_HIGH_RISK_ENTITIES` | Empty | Entities that always need the preview, confirmation and approval prompt. See [Protect specific entities](#protect-specific-entities). |
+| 7 | Never touch entities | `HA_NEVER_TOUCH` | Empty | Entities that can never be changed, even with approval. See [Protect specific entities](#protect-specific-entities). |
 | 8 | Require an approval prompt for high risk actions | `HA_REQUIRE_APPROVAL_PROMPT` | On | A human approval prompt becomes mandatory for risky actions. |
 | 9 | Dashboards, registries, scenes, blueprints and integrations | `HA_ENABLE_CONFIG` | On | The config tool group. |
 | 10 | Insight tools | `HA_ENABLE_INSIGHTS` | On | The insight tool group. |
@@ -645,9 +727,9 @@ Notes for the `env` names:
 
 **5. Allow self signed certificates.** Skips certificate checking. Only needed if your Home Assistant address starts with `https://` and uses a self-signed certificate, and only on a network you trust. Leave it off for plain `http://` addresses, where it does nothing.
 
-**6. Extra high risk entities.** A comma separated list of entity id patterns that should **always need approval** before being changed, for example `switch.workshop_*, light.pool_pump`. A `*` matches anything. Case does not matter. This adds to the built in rules (locks, alarms, heating, garage doors and so on) and never loosens them.
+**6. Extra high risk entities.** A comma separated list of entity IDs, or patterns with `*`, that always need the preview, confirmation and approval prompt before they are changed. For example `switch.workshop_*, light.pool_pump`. This adds to the built in rules and never loosens them. See [Protect specific entities](#protect-specific-entities) for how to write the entries, with examples.
 
-**7. Never touch entities.** A comma separated list of entity id patterns that this server must **never change, even with approval**, for example `lock.front_door, alarm_control_panel.*, cover.garage_*`. This also covers entities reached through an area or device, and automations that reference them cannot be saved. It is the best protection for anything you could not bear to have changed, so use it, especially for garage doors and gates in Mode B.
+**7. Never touch entities.** A comma separated list of entity IDs, or patterns with `*`, that the assistant can never change, even if you approve. For example `lock.*, alarm_control_panel.*, cover.garage_*`. This is the best protection for anything you could not bear to have changed. See [Protect specific entities](#protect-specific-entities) for how to write the entries, with examples.
 
 **8. Require an approval prompt for high risk actions.** On by default. A high risk action only runs if the client can show you an approval prompt and you accept it. A client that cannot show prompts is refused, and the assistant is told which setting to change. This only matters once the mode can change something. In Mode B it applies to risky but allowed calls, and in Modes C and D it applies to every high risk action. If a client cannot show prompts, such as LM Studio may be, you can switch this off, but then the preview and confirm steps are the only check, and a model performs those itself. Only do that if you accept that.
 
