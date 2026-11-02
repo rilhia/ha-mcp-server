@@ -15,14 +15,15 @@ It works with any MCP client that can launch a local program over stdio, for exa
 5. [Explode the MCPB and run it by hand](#explode-the-mcpb-and-run-it-by-hand)
 6. [Use it with LM Studio](#use-it-with-lm-studio)
 7. [Configuration reference](#configuration-reference)
-8. [How to use it](#how-to-use-it)
-9. [The tools, one by one](#the-tools-one-by-one)
-10. [Safety model](#safety-model)
-11. [What has and has not been tested](#what-has-and-has-not-been-tested)
-12. [Build from source](#build-from-source)
-13. [Troubleshooting](#troubleshooting)
-14. [Project layout](#project-layout)
-15. [Licence](#licence)
+8. [How the settings work together](#how-the-settings-work-together)
+9. [How to use it](#how-to-use-it)
+10. [The tools, one by one](#the-tools-one-by-one)
+11. [Safety model](#safety-model)
+12. [What has and has not been tested](#what-has-and-has-not-been-tested)
+13. [Build from source](#build-from-source)
+14. [Troubleshooting](#troubleshooting)
+15. [Project layout](#project-layout)
+16. [Licence](#licence)
 
 ## Tested with
 
@@ -262,9 +263,19 @@ This opens `mcp.json` in LM Studio's built in editor. The file lives here if you
 
 A fresh file contains `{ "mcpServers": {} }`.
 
-### Step 2: Add the server
+### Step 2: Choose a mode and add the server
 
-Put an entry for the server inside `mcpServers`. Start with this **safe starting configuration**. Replace the four values marked with angle brackets.
+First decide how much the model is allowed to do. There are three choices, and they only differ in two `env` lines.
+
+| Mode | `HA_READ_ONLY` | `HA_CONTROL_ONLY` | What the model can do | Tools you will see |
+| --- | --- | --- | --- | --- |
+| **A. Read only** (start here) | `"true"` | leave out | Look at everything. Change nothing. | 44 |
+| **B. Control only** (everyday use) | `"false"` | `"true"` | Look at everything and switch lights, plugs, fans, blinds and media players. Cannot edit automations, scripts, scenes, helpers, dashboards or settings. | 45 |
+| **C. Full** (rarely, with care) | `"false"` | leave out | Everything, with approval for risky actions. | 72 |
+
+For the full detail of how these combine with the other settings, see [How the settings work together](#how-the-settings-work-together).
+
+Put an entry for the server inside `mcpServers`. The examples below are mode A, the **safe starting configuration**. Replace the four values marked with angle brackets. The next sections show how to change it for modes B and C.
 
 ```json
 {
@@ -347,7 +358,7 @@ JSON is strict, and one mistake stops the whole file loading.
 
 ### Every setting you can put in `env`
 
-All of these are optional apart from `HA_URL` and `HA_TOKEN`. Every value must be a string.
+All of these are optional apart from `HA_URL` and `HA_TOKEN`. Every value must be a string. The mode settings (`HA_READ_ONLY` and `HA_CONTROL_ONLY`) decide which tools exist, and the rest decide how a risky call is handled. [How the settings work together](#how-the-settings-work-together) explains the order they are applied in.
 
 | Name | Example value | What it does | Default if left out |
 | --- | --- | --- | --- |
@@ -372,22 +383,48 @@ All of these are optional apart from `HA_URL` and `HA_TOKEN`. Every value must b
 
 Boolean settings accept `"true"`, `"1"`, `"yes"` or `"on"` as yes. Anything else counts as no.
 
-### An everyday setup: switch things on and off, but nothing else
+### Mode B: everyday control (switch things on and off, nothing else)
 
-Once you are happy with read only mode and want the model to control lights, plugs and so on, use control only mode. Change `HA_READ_ONLY` to `"false"` (or remove it) and add `HA_CONTROL_ONLY`:
+Once you are happy with read only mode and want the model to control lights, plugs and so on, use control only mode. Compared with mode A, there are only two changes: `HA_READ_ONLY` becomes `"false"` and `HA_CONTROL_ONLY` is added.
 
 ```json
-"env": {
-  "HA_URL": "http://192.168.1.50:8123",
-  "HA_TOKEN": "eyJhbGciOi...your_long_token...",
-  "HA_READ_ONLY": "false",
-  "HA_CONTROL_ONLY": "true",
-  "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
-  "HA_ENABLE_RAW": "false"
+{
+  "mcpServers": {
+    "home-assistant": {
+      "command": "/opt/homebrew/bin/node",
+      "args": ["/Users/yourname/mcp-servers/home-assistant/dist/index.js"],
+      "env": {
+        "HA_URL": "http://192.168.1.50:8123",
+        "HA_TOKEN": "eyJhbGciOi...your_long_token...",
+        "HA_READ_ONLY": "false",
+        "HA_CONTROL_ONLY": "true",
+        "HA_NEVER_TOUCH": "lock.*,alarm_control_panel.*,cover.garage_*,cover.gate_*",
+        "HA_ENABLE_RAW": "false"
+      }
+    }
+  }
 }
 ```
 
-In the Program tab you should see **45 tools**. The model can read everything and switch everyday devices, but cannot edit automations, scripts, scenes, helpers, dashboards or settings. The log line says `(CONTROL ONLY mode)`. If you see 72, the setting has not taken effect.
+What to expect:
+
+* In the Program tab you should see **45 tools**. If you see 72, the setting has not taken effect. If you see 44, read only is still on.
+* The server log says `(CONTROL ONLY mode)`.
+* The model can read everything and switch lights, plugs, fans, blinds and media players. It cannot edit automations, scripts, scenes, helpers, dashboards or settings. Those tools do not exist.
+* Locks, alarms, heating, notifications and restarting Home Assistant are refused, not just gated.
+* Allowed but risky calls, such as a washing machine plug or a whole area at once, need the two step approval. Do not add `HA_REQUIRE_APPROVAL_PROMPT` here unless LM Studio supports approval prompts, or those calls will be refused.
+* Keep the `HA_NEVER_TOUCH` line. Control only mode does not exclude covers (so blinds work), which means garage doors and gates rely on the approval step and the never touch list for protection.
+* If you set `HA_READ_ONLY` to `"true"` as well, **read only wins** and you are back to 44 tools.
+
+Try it with something harmless: "Turn on the desk lamp, then turn it off again." Then try something it should refuse, such as "Create an automation that turns on the hall light at sunset". It should say that it cannot, because the tool is not available.
+
+### Mode C: full access (be careful)
+
+Remove `HA_CONTROL_ONLY` (or set it to `"false"`) and set `HA_READ_ONLY` to `"false"`. See [Turning full writes on](#turning-full-writes-on-be-careful) below for the rules.
+
+### Switching between modes
+
+Edit `mcp.json`, save, then switch the server off and on again in the Program tab. The mode is only read when the server starts. A quick check after every change: count the tools (44, 45 or 72).
 
 ### A complete example with every setting
 
@@ -491,6 +528,57 @@ These are environment variables. In Claude Desktop most are tick boxes and text 
 | `HA_AUDIT_LOG` | no | Audit log file. Default `~/.ha-mcp-server/audit.jsonl` |
 | `HA_TIMEOUT_MS` | no | Request timeout. Default 30000 |
 | `HA_MAX_OUTPUT_CHARS` | no | Cap on a single tool response. Default 40000 |
+
+## How the settings work together
+
+Two things are decided, in this order. First, **which tools exist** when the server starts. Then, for each call to `call_service`, **what is allowed to happen**.
+
+### 1. Which tools exist
+
+| `HA_READ_ONLY` | `HA_CONTROL_ONLY` | Result | Tools |
+| --- | --- | --- | --- |
+| `true` | anything | Read tools only. Read only wins, so control only is ignored. | 44 |
+| `false` or not set | `true` | Read tools plus `call_service` limited to everyday devices. | 45 |
+| `false` or not set | `false` or not set | Everything. | 72 |
+
+Note that **leaving `HA_READ_ONLY` out means writes are on.** Always set the mode you want explicitly.
+
+The `HA_ENABLE_*` switches then remove whole groups of tools from whichever list you ended up with.
+
+* `HA_ENABLE_RAW=false` removes the raw API tools. In the two restricted modes only the two raw read tools are affected.
+* `HA_ENABLE_CONFIG=false` removes dashboards, registries, scenes, blueprints and integrations.
+* `HA_ENABLE_INSIGHTS=false` removes the overview, problem finder, statistics and similar tools.
+* `HA_ENABLE_SUPERVISOR=true` adds the add-on and host tools. In the restricted modes only their read tools appear.
+
+None of the `HA_ENABLE_*` switches can bring a writing tool back in read only or control only mode.
+
+### 2. What happens when `call_service` is used
+
+This applies in control only mode and in full mode. Each call goes through these checks in order, and the first one that says no stops it.
+
+1. **Does the service exist, with all its required fields?** If not, an error comes back.
+2. **Control only allow list** (control only mode only). Anything outside the everyday device domains is refused outright. There is no way to confirm past this.
+3. **Risk assessment.** The built in rules decide whether the call is low or high risk, together with your `HA_HIGH_RISK_ENTITIES` and `HA_HIGH_RISK_DOMAINS`. These settings can only make things stricter. They never loosen anything, and they cannot widen the control only allow list. Adding `media_player` to `HA_HIGH_RISK_DOMAINS` makes those calls need approval, and does not block them.
+4. **Never touch list** (`HA_NEVER_TOUCH`). If any entity the call would affect matches, it is refused outright. That includes entities reached through an area or device target.
+5. **Approval gate.** Low risk calls run straight away. High risk calls need a preview first, then the same call with `confirm: true`, `dry_run: false` and the plan token. If `HA_REQUIRE_APPROVAL_PROMPT=true`, a human approval prompt is also required, and a client that cannot show one is refused.
+
+### What that means in practice
+
+| Settings | Switch the kitchen light | Switch a washing machine plug | Unlock a door | Edit an automation |
+| --- | --- | --- | --- | --- |
+| `HA_READ_ONLY=true` | no tool | no tool | no tool | no tool |
+| `HA_CONTROL_ONLY=true` | runs | needs approval | refused (not allowed) | no tool |
+| `HA_CONTROL_ONLY=true` and `HA_REQUIRE_APPROVAL_PROMPT=true` | runs | refused unless the client can show a prompt | refused (not allowed) | no tool |
+| Neither mode, `HA_NEVER_TOUCH=lock.*` | runs | needs approval | refused (never touch) | needs approval |
+| Neither mode, nothing else set | runs | needs approval | needs approval | needs approval |
+
+### Which settings to use
+
+* **Just exploring:** `HA_READ_ONLY=true`.
+* **Everyday switching for a basic user:** `HA_READ_ONLY=false`, `HA_CONTROL_ONLY=true`, and `HA_NEVER_TOUCH` listing your locks, alarms, garage doors and gates. Control only mode does not exclude covers, so the garage door and gates are protected by the approval step and by the never touch list.
+* **Building and editing automations, scripts and dashboards:** both modes off. Do this deliberately, for a short job, and preferably with Claude rather than a local model.
+* **LM Studio or any local model:** avoid `HA_REQUIRE_APPROVAL_PROMPT` unless you know your client supports prompts. If it does not, every risky call is refused. That is safe, but it can look like the server is broken.
+* Settings such as `HA_URL`, `HA_TOKEN`, `HA_TIMEOUT_MS` and `HA_MAX_OUTPUT_CHARS` do not interact with any of the above.
 
 ## How to use it
 
