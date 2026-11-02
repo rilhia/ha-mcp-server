@@ -31,7 +31,7 @@ async function connect(env = {}, opts = {}) {
   const transport = new StdioClientTransport({
     command: "node",
     args: [process.env.MCP_ENTRY ?? path.join(root, "dist", "index.js")],
-    env: { ...process.env, HA_URL: mock.url, HA_TOKEN: TOKEN, HA_BACKUP_DIR: backupDir, HA_AUDIT_LOG: auditFile, HA_ENABLE_RAW: "true", ...env },
+    env: { ...process.env, HA_URL: mock.url, HA_TOKEN: TOKEN, HA_BACKUP_DIR: backupDir, HA_AUDIT_LOG: auditFile, HA_ENABLE_RAW: "true", HA_ACCESS_MODE: "full", HA_REQUIRE_APPROVAL_PROMPT: "false", ...env },
     stderr: "ignore",
   });
   const client = new Client({ name: "smoke", version: "1.0.0" }, opts.capabilities ? { capabilities: opts.capabilities } : undefined);
@@ -395,7 +395,7 @@ await t("the WebSocket channel is reused across commands", async () => {
 await client.close();
 
 console.log("Read only mode and auth failures");
-const ro = await connect({ HA_READ_ONLY: "true" });
+const ro = await connect({ HA_ACCESS_MODE: "read_only" });
 await t("read only mode registers only read tools", async () => {
   const { tools: roTools } = await ro.listTools();
   const roNames = roTools.map((x) => x.name);
@@ -836,7 +836,7 @@ await t("the audit log records executed changes and previews without leaking pla
 await rd.close();
 
 console.log("Insights, toolsets and Supervisor");
-const ins = await connect({ HA_READ_ONLY: "true", HA_IGNORE_UNAVAILABLE: "light.hall*" });
+const ins = await connect({ HA_ACCESS_MODE: "read_only", HA_IGNORE_UNAVAILABLE: "light.hall*" });
 const insNames = (await ins.listTools()).tools.map((x) => x.name);
 await t("insight tools are available in read only mode", () => {
   for (const n of ["get_home_overview", "find_problems", "explain_state_change", "get_statistics", "get_calendar_events", "get_todo_items", "get_forecast", "get_camera_snapshot", "wait_for_state", "get_system_log"]) assert.ok(insNames.includes(n), n);
@@ -910,7 +910,7 @@ await t("toolset switches remove whole groups", async () => {
   for (const g of ["list_dashboards", "manage_registry", "list_blueprints", "list_integrations", "get_home_overview", "ha_ws_read"]) assert.ok(!n.includes(g), g);
 });
 await t("supervisor toolset: reads work, writes need a plan token, read only hides writes", async () => {
-  const ro = await connect({ HA_ENABLE_SUPERVISOR: "true", HA_READ_ONLY: "true" });
+  const ro = await connect({ HA_ENABLE_SUPERVISOR: "true", HA_ACCESS_MODE: "read_only" });
   const rn = (await ro.listTools()).tools.map((x) => x.name);
   assert.ok(rn.includes("list_addons") && rn.includes("get_addon_logs") && rn.includes("get_supervisor_info"));
   assert.ok(!rn.includes("manage_addon") && !rn.includes("create_ha_backup"));
@@ -936,7 +936,7 @@ await t("supervisor toolset: reads work, writes need a plan token, read only hid
 });
 await t("supervisor tools explain themselves when no Supervisor exists", async () => {
   mock.supervisor = false;
-  const c = await connect({ HA_ENABLE_SUPERVISOR: "true", HA_READ_ONLY: "true" });
+  const c = await connect({ HA_ENABLE_SUPERVISOR: "true", HA_ACCESS_MODE: "read_only" });
   const r = await call("list_addons", {}, c);
   mock.supervisor = true;
   await c.close();
@@ -962,27 +962,75 @@ await t("server instructions only mention the raw tools when they are switched o
   const onText = on.getInstructions() ?? "";
   await on.close();
   assert.match(onText, /ha_ws_write/);
-  const roOn = await connect({ HA_ENABLE_RAW: "true", HA_READ_ONLY: "true" });
+  const roOn = await connect({ HA_ENABLE_RAW: "true", HA_ACCESS_MODE: "read_only" });
   const roText = roOn.getInstructions() ?? "";
   await roOn.close();
   assert.ok(/ha_ws_read/.test(roText) && !/ha_ws_write/.test(roText));
 });
 
+console.log("Safe by default");
+await t("with nothing set, the server starts read only, with raw tools off and approval prompts required", async () => {
+  // An empty value counts as "not set", so this exercises the real defaults.
+  const unset = { HA_ACCESS_MODE: "", HA_REQUIRE_APPROVAL_PROMPT: "", HA_ENABLE_RAW: "" };
+  const c = await connect(unset);
+  const names = (await c.listTools()).tools.map((x) => x.name);
+  const text = c.getInstructions() ?? "";
+  await c.close();
+  assert.ok(!names.includes("call_service") && !names.includes("save_automation"), "default must be read only");
+  assert.ok(!names.includes("ha_ws_read"), "raw tools off by default");
+  assert.equal(names.length, 42);
+  assert.match(text, /Access level is read_only/);
+  assert.match(text, /approval prompt/);
+});
+await t("each access level gives the right tools", async () => {
+  const unset = { HA_REQUIRE_APPROVAL_PROMPT: "", HA_ENABLE_RAW: "" };
+  const b = await connect({ ...unset, HA_ACCESS_MODE: "control_only" });
+  const bn = (await b.listTools()).tools.map((x) => x.name);
+  await b.close();
+  assert.ok(bn.includes("call_service") && !bn.includes("save_automation"));
+  assert.equal(bn.length, 43);
+  const c = await connect({ ...unset, HA_ACCESS_MODE: "full" });
+  const cn = (await c.listTools()).tools.map((x) => x.name);
+  await c.close();
+  assert.ok(cn.includes("save_automation") && cn.includes("restart_home_assistant"));
+  assert.equal(cn.length, 68);
+});
+await t("access level is forgiving about spelling, and an unknown value falls back to read only", async () => {
+  for (const v of ["Read Only", "read-only", "READ_ONLY", "banana", "true"]) {
+    const c = await connect({ HA_ACCESS_MODE: v, HA_ENABLE_RAW: "" });
+    const names = (await c.listTools()).tools.map((x) => x.name);
+    await c.close();
+    assert.equal(names.length, 42, `"${v}" should be read only`);
+  }
+  const c = await connect({ HA_ACCESS_MODE: "Control-Only", HA_ENABLE_RAW: "" });
+  const names = (await c.listTools()).tools.map((x) => x.name);
+  await c.close();
+  assert.ok(names.includes("call_service"), "Control-Only should be control_only");
+});
+await t("with the approval prompt on by default, a client that cannot prompt is refused and told how to change it", async () => {
+  const c = await connect({ HA_ACCESS_MODE: "full", HA_REQUIRE_APPROVAL_PROMPT: "" });
+  const r = await call("restart_home_assistant", { confirm: true, dry_run: false }, c);
+  await c.close();
+  assert.equal(r.data.status, "approval_prompt_unavailable", r.raw);
+  assert.match(r.data.message, /Require an approval prompt/);
+  assert.match(r.data.message, /HA_REQUIRE_APPROVAL_PROMPT/);
+});
+
 console.log("Telling the user which setting to change");
 await t("the briefing explains what is off and how to turn it on, for each mode", async () => {
-  const ro = await connect({ HA_READ_ONLY: "true", HA_ENABLE_RAW: "" });
+  const ro = await connect({ HA_ACCESS_MODE: "read_only", HA_ENABLE_RAW: "" });
   const roText = ro.getInstructions() ?? "";
   await ro.close();
-  assert.match(roText, /Read only mode is ON/);
-  assert.match(roText, /HA_READ_ONLY/);
-  assert.match(roText, /Control only mode/);
+  assert.match(roText, /Access level is read_only/);
+  assert.match(roText, /HA_ACCESS_MODE/);
+  assert.match(roText, /control_only/);
   assert.match(roText, /HA_ENABLE_RAW/, "off by default, so the briefing says how to turn raw on");
   assert.match(roText, /cannot change settings yourself/);
-  const co = await connect({ HA_CONTROL_ONLY: "true", HA_NEVER_TOUCH: "lock.*" });
+  const co = await connect({ HA_ACCESS_MODE: "control_only", HA_NEVER_TOUCH: "lock.*" });
   const coText = co.getInstructions() ?? "";
   await co.close();
-  assert.match(coText, /Control only mode is ON/);
-  assert.match(coText, /HA_CONTROL_ONLY/);
+  assert.match(coText, /Access level is control_only/);
+  assert.match(coText, /HA_ACCESS_MODE/);
   assert.match(coText, /lock\.\*/);
   assert.match(coText, /Never touch entities/);
   // Fully open: nothing restrictive to say, so no settings briefing at all.
@@ -996,11 +1044,11 @@ await t("the briefing explains what is off and how to turn it on, for each mode"
   assert.match(noCfgText, /HA_ENABLE_CONFIG/);
 });
 await t("refusals say what setting to change", async () => {
-  const co = await connect({ HA_CONTROL_ONLY: "true", HA_NEVER_TOUCH: "light.kitchen" });
+  const co = await connect({ HA_ACCESS_MODE: "control_only", HA_NEVER_TOUCH: "light.kitchen" });
   const blocked = await call("call_service", { domain: "lock", service: "unlock", entity_id: "lock.front_door" }, co);
   assert.equal(blocked.data.status, "blocked_control_only");
-  assert.match(blocked.data.message, /Control only mode/);
-  assert.match(blocked.data.message, /HA_CONTROL_ONLY/);
+  assert.match(blocked.data.message, /control only mode/);
+  assert.match(blocked.data.message, /HA_ACCESS_MODE/);
   assert.match(blocked.data.message, /backup/);
   assert.match(blocked.data.message, /cannot change this setting yourself/);
   const nt = await call("call_service", { domain: "light", service: "turn_on", entity_id: "light.kitchen" }, co);
@@ -1011,7 +1059,7 @@ await t("refusals say what setting to change", async () => {
 });
 
 console.log("Control only mode");
-const co = await connect({ HA_CONTROL_ONLY: "true" });
+const co = await connect({ HA_ACCESS_MODE: "control_only" });
 await t("control only registers the read tools plus call_service and nothing else that writes", async () => {
   const { tools } = await co.listTools();
   const names = tools.map((x) => x.name);
@@ -1061,16 +1109,9 @@ await t("control only keeps the normal approval step for risky but allowed calls
 });
 await t("control only mentions itself in the server instructions", async () => {
   const text = co.getInstructions?.() ?? "";
-  assert.match(text, /Control only mode is ON/);
+  assert.match(text, /Access level is control_only/);
 });
 await co.close();
-await t("read only wins when both read only and control only are on", async () => {
-  const both = await connect({ HA_READ_ONLY: "true", HA_CONTROL_ONLY: "true" });
-  const names = (await both.listTools()).tools.map((x) => x.name);
-  await both.close();
-  assert.ok(!names.includes("call_service"));
-});
-
 await mock.close();
 fs.rmSync(backupDir, { recursive: true, force: true });
 console.log(`\n${passed} passed, ${failures.length} failed`);

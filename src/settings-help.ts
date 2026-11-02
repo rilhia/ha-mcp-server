@@ -17,8 +17,7 @@ import type { Config } from "./config.js";
 // How a setting is called in each place. 'form' is the label in the Claude Desktop
 // settings form, and 'env' is the environment variable name used in LM Studio's mcp.json.
 const SETTINGS = {
-  readOnly: { form: "Read only mode", env: "HA_READ_ONLY" },
-  controlOnly: { form: "Control only mode", env: "HA_CONTROL_ONLY" },
+  accessMode: { form: "Access level", env: "HA_ACCESS_MODE" },
   raw: { form: "Raw API tools", env: "HA_ENABLE_RAW" },
   config: { form: "Dashboards, registries, scenes, blueprints and integrations", env: "HA_ENABLE_CONFIG" },
   insights: { form: "Insight tools", env: "HA_ENABLE_INSIGHTS" },
@@ -38,20 +37,26 @@ export function howToTurnOn(key: SettingKey): string {
   return `To turn this on: in Claude Desktop tick "${s.form}", or in LM Studio or another client set ${s.env} to "true" in the config. ${RESTART}`;
 }
 
-/** The reverse: untick the box, or set the variable to "false". */
+/** "set Access level to control_only (HA_ACCESS_MODE in LM Studio)". One setting picks the mode, so the advice is always one change. */
+function setLevel(level: "read_only" | "control_only" | "full"): string {
+  const s = SETTINGS.accessMode;
+  return `set "${s.form}" to ${level} (in LM Studio or another client, set ${s.env} to "${level}")`;
+}
+
+/** The reverse: untick the box, or set the variable to "false". It must be set explicitly, because leaving it out now means "on". */
 export function howToTurnOff(key: SettingKey): string {
   const s = SETTINGS[key];
-  return `To turn this off: in Claude Desktop untick "${s.form}", or in LM Studio or another client set ${s.env} to "false" (or remove it) in the config. ${RESTART}`;
+  return `To turn this off: in Claude Desktop untick "${s.form}", or in LM Studio or another client set ${s.env} to "false" in the config (leaving it out means on). ${RESTART}`;
 }
 
 /** Used in every never touch refusal. Removing a pattern is the only way to allow the change. */
 export const NEVER_TOUCH_HELP = `To allow it, the user would have to remove the matching pattern from the "${SETTINGS.neverTouch.form}" setting (${SETTINGS.neverTouch.env}) and restart the server. ${RESTART} You cannot change this setting yourself.`;
 
 /** Used when an approval prompt is required but the client cannot show one. */
-export const APPROVAL_HELP = `If the user wants to allow this without a prompt, they can turn off "${SETTINGS.approval.form}" (${SETTINGS.approval.env}) and restart the server. They will then use the normal preview and confirm steps instead. ${RESTART}`;
+export const APPROVAL_HELP = `If the user wants to allow this without a prompt, they can turn off "${SETTINGS.approval.form}" (set ${SETTINGS.approval.env} to "false") and restart the server. They will then use the normal preview and confirm steps instead. ${RESTART}`;
 
 /** Added to refusals in control only mode. */
-export const CONTROL_ONLY_HELP = `If the user really needs this, they can turn off "${SETTINGS.controlOnly.form}" (${SETTINGS.controlOnly.env}) to get full access, with approval for risky actions. Before suggesting that, remind them to take a Home Assistant backup, and that local models are less reliable at following safety rules. ${RESTART} You cannot change this setting yourself.`;
+export const CONTROL_ONLY_HELP = `If the user really needs this, they can ${setLevel("full")} to get full access, with approval for risky actions. Before suggesting that, remind them to take a Home Assistant backup, and that local models are less reliable at following safety rules. ${RESTART} You cannot change this setting yourself.`;
 
 // Builds the paragraph added to the server instructions. It states the current mode,
 // lists what is switched off, and says how to enable each thing. The assistant is told
@@ -62,11 +67,11 @@ export function statusNote(cfg: Config): string {
 
   if (cfg.readOnly) {
     lines.push(
-      `Read only mode is ON. You can look at everything but you cannot change anything: no switching devices, and no creating, editing or deleting automations, scripts, scenes, helpers, dashboards or settings. To allow switching everyday devices only, the user can turn off "${SETTINGS.readOnly.form}" (${SETTINGS.readOnly.env}) and turn on "${SETTINGS.controlOnly.form}" (${SETTINGS.controlOnly.env}). To allow all changes, they can just turn off "${SETTINGS.readOnly.form}".`
+      `Access level is read_only. You can look at everything but you cannot change anything: no switching devices, and no creating, editing or deleting automations, scripts, scenes, helpers, dashboards or settings. To allow switching everyday devices only, the user can ${setLevel("control_only")}. To allow all changes, they can ${setLevel("full")}. The access level is read_only unless changed.`
     );
   } else if (cfg.controlOnly) {
     lines.push(
-      `Control only mode is ON. You can read everything and use call_service for everyday devices such as lights, switches, fans, covers, media players and helper toggles. You cannot create, edit or delete automations, scripts, scenes, helpers, dashboards, registries, integrations or settings, you cannot restart Home Assistant, and locks, alarms and climate cannot be controlled. To allow everything, the user can turn off "${SETTINGS.controlOnly.form}" (${SETTINGS.controlOnly.env}). To go back to looking only, they can turn on "${SETTINGS.readOnly.form}" (${SETTINGS.readOnly.env}).`
+      `Access level is control_only. You can read everything and use call_service for everyday devices such as lights, switches, fans, covers, media players and helper toggles. You cannot create, edit or delete automations, scripts, scenes, helpers, dashboards, registries, integrations or settings, you cannot restart Home Assistant, and locks, alarms and climate cannot be controlled. To allow everything, the user can ${setLevel("full")}. To go back to looking only, they can ${setLevel("read_only")}.`
     );
   }
 

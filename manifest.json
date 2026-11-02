@@ -27,8 +27,7 @@
       "env": {
         "HA_URL": "${user_config.ha_url}",
         "HA_TOKEN": "${user_config.ha_token}",
-        "HA_READ_ONLY": "${user_config.read_only}",
-        "HA_CONTROL_ONLY": "${user_config.control_only}",
+        "HA_ACCESS_MODE": "${user_config.access_mode}",
         "HA_INSECURE_TLS": "${user_config.insecure_tls}",
         "HA_HIGH_RISK_ENTITIES": "${user_config.high_risk_entities}",
         "HA_NEVER_TOUCH": "${user_config.never_touch_entities}",
@@ -55,18 +54,11 @@
       "sensitive": true,
       "required": true
     },
-    "read_only": {
-      "type": "boolean",
-      "title": "Read only mode",
-      "description": "Only register tools that cannot change anything. Recommended for a first try.",
-      "default": false,
-      "required": false
-    },
-    "control_only": {
-      "type": "boolean",
-      "title": "Control only mode",
-      "description": "Everyday use. Can read everything and switch lights, switches, fans, covers and media players, but cannot change automations, scripts, scenes, helpers, dashboards or settings. Ignored if Read only mode is ticked.",
-      "default": false,
+    "access_mode": {
+      "type": "string",
+      "title": "Access level",
+      "description": "What the assistant is allowed to do. Type one of: read_only (look at everything, change nothing), control_only (also switch lights, switches, fans, covers and media players, but cannot change automations, scripts, scenes, helpers, dashboards or settings), or full (everything, with approval for risky actions). Defaults to read_only. Anything else is treated as read_only.",
+      "default": "read_only",
       "required": false
     },
     "insecure_tls": {
@@ -91,8 +83,8 @@
     "require_approval_prompt": {
       "type": "boolean",
       "title": "Require an approval prompt for high risk actions",
-      "description": "When on, high risk actions only run if Claude can show you an approval prompt and you accept it. Clients that cannot show prompts will be refused.",
-      "default": false,
+      "description": "On by default. High risk actions only run if Claude can show you an approval prompt and you accept it. Clients that cannot show prompts will be refused. Untick to use the normal preview and confirm steps instead.",
+      "default": true,
       "required": false
     },
     "enable_config": {
