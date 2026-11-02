@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="assets/HA-Header-Image.png" alt="Home Assistant MCP" width="100%">
+</div>
+
 # Home Assistant MCP Server (beta)
 
 > **This is a beta, version 0.2.1.** It works well against a real Home Assistant 2026.10 instance, but some write paths have not been tried on real hardware (see [What has and has not been tested](#what-has-and-has-not-been-tested)). It starts in read only mode by default, so nothing can be changed until you decide otherwise. Keep backups of your Home Assistant, and report anything odd as a GitHub issue.
