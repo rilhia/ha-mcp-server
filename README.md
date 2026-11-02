@@ -91,15 +91,71 @@ Roughly, in plain English:
 ## Install in Claude Desktop
 
 1. Download `home-assistant-mcp-0.2.1.mcpb` from the GitHub release page.
-2. Open Claude Desktop, go to Settings, then Extensions, and drag the file in (or double click it).
-3. Fill in the form:
-   * **Home Assistant URL**, for example `http://192.168.1.50:8123` (no trailing slash needed).
-   * **Long-lived access token.** In Home Assistant, click your profile (bottom left), open the Security tab, scroll to the bottom and create a long-lived access token. The token is kept in your operating system keychain.
-   * **Read only mode**: tick this to start with. It is **not** ticked by default.
-   * **Control only mode**: tick this instead if you want it to switch lights and devices but not change any settings. See [Control only mode](#control-only-mode-switch-things-on-and-off-nothing-else).
-4. Start a new chat and ask: "Check you can reach Home Assistant."
+2. Open Claude Desktop, go to Settings, then Extensions, and drag the file in (or double click it). You can also double click the file in Finder or File Explorer.
+3. The extension appears as **Home Assistant (full control)**. Click **Install** and fill in the settings form. Every field is explained below.
+4. Make sure the extension is switched **Enabled**, then start a new chat and ask: "Check you can reach Home Assistant."
 
 Claude Desktop shows the server's log if something goes wrong. The first log line tells you which URL it is using and how long the token is (never the token itself).
+
+### Every setting in the Claude Desktop form
+
+The form has 13 settings, in this order. Only the first two are required. Everything else is optional. The last column is the name the same setting has in LM Studio's `mcp.json`, described in [Use it with LM Studio](#use-it-with-lm-studio).
+
+| # | Setting in the form | Default | LM Studio `env` name |
+| --- | --- | --- | --- |
+| 1 | Home Assistant URL | none, required | `HA_URL` |
+| 2 | Long-lived access token | none, required | `HA_TOKEN` |
+| 3 | Read only mode | off | `HA_READ_ONLY` |
+| 4 | Control only mode | off | `HA_CONTROL_ONLY` |
+| 5 | Allow self signed certificates | off | `HA_INSECURE_TLS` |
+| 6 | Extra high risk entities | empty | `HA_HIGH_RISK_ENTITIES` |
+| 7 | Never touch entities | empty | `HA_NEVER_TOUCH` |
+| 8 | Require an approval prompt for high risk actions | off | `HA_REQUIRE_APPROVAL_PROMPT` |
+| 9 | Dashboards, registries, scenes, blueprints and integrations | on | `HA_ENABLE_CONFIG` |
+| 10 | Insight tools | on | `HA_ENABLE_INSIGHTS` |
+| 11 | Raw API tools | on | `HA_ENABLE_RAW` |
+| 12 | Supervisor tools | off | `HA_ENABLE_SUPERVISOR` |
+| 13 | Entities expected to be unavailable | empty | `HA_IGNORE_UNAVAILABLE` |
+
+**1. Home Assistant URL (required).** The address of your Home Assistant, including the port, for example `http://192.168.1.50:8123` or `http://homeassistant.local:8123`. A trailing slash is removed for you, and if you leave off `http://` it is added. If you change this later, the new address takes effect after Claude Desktop restarts the extension. Use the IP address if `homeassistant.local` does not work from your computer.
+
+**2. Long-lived access token (required).** In Home Assistant, click your name at the bottom left to open your profile, open the **Security** tab, scroll to the bottom and click **Create token**. Give it a name such as `Claude MCP`, and copy it straight away because Home Assistant only shows it once. Claude Desktop stores it in your operating system keychain, not in a plain file. Quotes, a pasted `Bearer ` prefix and stray spaces or line breaks are removed for you. Make a token just for this extension so you can revoke it separately.
+
+**3. Read only mode.** Only tools that cannot change anything are available. Claude can look at everything but cannot change a thing. **Recommended for a first try**, and not ticked by default, so tick it yourself. When on, 44 tools are available.
+
+**4. Control only mode.** For everyday use. Claude can read everything and switch lights, plugs, fans, blinds, media players and similar devices, but cannot change automations, scripts, scenes, helpers, dashboards or settings, and cannot control locks, alarms or heating. 45 tools are available. It is ignored if Read only mode is ticked. Full details are in [Control only mode](#control-only-mode-switch-things-on-and-off-nothing-else).
+
+**5. Allow self signed certificates.** Skips certificate checking. Only needed if your Home Assistant address starts with `https://` and uses a self-signed certificate, and only on a network you trust. Leave it off for plain `http://` addresses, where it does nothing.
+
+**6. Extra high risk entities.** A comma separated list of entity id patterns that should **always need approval** before being changed, for example `switch.workshop_*, light.pool_pump`. A `*` matches anything. Case does not matter. This adds to the built in rules (locks, alarms, heating, garage doors and so on) and never loosens them.
+
+**7. Never touch entities.** A comma separated list of entity id patterns that this server must **never change, even with approval**, for example `lock.front_door, alarm_control_panel.*, cover.garage_*`. This also covers entities reached through an area or device, and automations that reference them cannot be saved. It is the best protection for anything you could not bear to have changed, so use it, especially for garage doors and gates in control only mode.
+
+**8. Require an approval prompt for high risk actions.** When on, a high risk action only runs if Claude can show you an approval prompt and you accept it. A client that cannot show prompts is refused. Leave it off if you are happy with Claude's normal preview and confirm step. Turn it on for extra safety with Claude Desktop. Do not turn it on for LM Studio unless you know it supports prompts.
+
+**9. Dashboards, registries, scenes, blueprints and integrations.** On by default. Tools to manage dashboards, areas, floors, labels, devices, entities, zones, scenes, blueprints, integrations and repairs. Switch it off to give Claude fewer tools. The read tools in this group go with it.
+
+**10. Insight tools.** On by default. The home overview, problem finder, state change explainer, statistics, calendar, to-do list, forecast, camera snapshot, wait for state and system log tools. All of them are read tools.
+
+**11. Raw API tools.** On by default. Generic tools that can call any REST or WebSocket endpoint, for anything the other tools do not cover. Writes through them still need the two step approval, but they are the most powerful and least guarded tools here. Switch them off if you want a tighter setup.
+
+**12. Supervisor tools.** Off by default. Add-ons, Home Assistant backups and host information. They **only work on Home Assistant OS or Supervised installs**. On Docker or Core installs there is no Supervisor, so leave this off.
+
+**13. Entities expected to be unavailable.** A comma separated list of entity id patterns that the problem finder and the home overview should **not** report as unavailable, for example `light.*, switch.garage_*`. Useful if you have devices that are often switched off at the wall. It only affects reporting, not what Claude can do.
+
+### Suggested settings for Claude Desktop
+
+| What you want | Settings to tick |
+| --- | --- |
+| Look around safely (start here) | Read only mode on, everything else as it came |
+| Everyday control | Control only mode on. Fill in **Never touch entities** with your locks, alarms and garage doors. |
+| Full control for a specific job | Read only and Control only both off. Fill in **Never touch entities**. Consider turning Raw API tools off. |
+
+How these combine is explained in [How the settings work together](#how-the-settings-work-together).
+
+### Changing settings later
+
+Open Claude Desktop, go to Settings, then Extensions, choose **Home Assistant (full control)** and open its settings (the button is usually labelled **Configure**). Change what you need, save, and restart the extension (or Claude Desktop) if it does not restart itself. Mode changes only take effect when the server restarts, so a quick check is to ask Claude how many Home Assistant tools it has, or to look at the first lines of the extension log, which say `READ ONLY mode`, `CONTROL ONLY mode`, or neither.
 
 ## Explode the MCPB and run it by hand
 
@@ -357,6 +413,8 @@ JSON is strict, and one mistake stops the whole file loading.
 5. Ask: "Check you can reach Home Assistant." The first time a tool is called, LM Studio asks you to approve the call. Read what it wants to do, and approve.
 
 ### Every setting you can put in `env`
+
+This list matches the Claude Desktop form one to one. Each form setting has an `env` name, shown in the [table of Claude Desktop settings](#every-setting-in-the-claude-desktop-form). In LM Studio you write the names yourself, every value is a string in quotes, and the on and off settings are `"true"` and `"false"`. For the pattern settings (`HA_NEVER_TOUCH`, `HA_HIGH_RISK_ENTITIES`, `HA_IGNORE_UNAVAILABLE`), write one string with commas between patterns. A `*` matches anything, and case does not matter. Five settings are not in the Claude Desktop form (`HA_HIGH_RISK_DOMAINS`, `HA_BACKUP_DIR`, `HA_AUDIT_LOG`, `HA_TIMEOUT_MS` and `HA_MAX_OUTPUT_CHARS`), but you can use them in a manual setup like this one.
 
 All of these are optional apart from `HA_URL` and `HA_TOKEN`. Every value must be a string. The mode settings (`HA_READ_ONLY` and `HA_CONTROL_ONLY`) decide which tools exist, and the rest decide how a risky call is handled. [How the settings work together](#how-the-settings-work-together) explains the order they are applied in.
 
