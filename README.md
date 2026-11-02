@@ -288,20 +288,20 @@ Claude Desktop reads the `.mcpb` file for you, so there is nothing to unpack.
 
 ### Step 2: Fill in the settings form
 
-The form has 13 settings. Fill it in three parts. Every setting is explained in the [Settings reference](#settings-reference), and the numbers below match the numbers there.
+The form has 13 settings. Fill it in three parts. Every setting is explained in the [Settings reference](#settings-reference).
 
 **Part 1: the two required settings**
 
-| # | Setting in the form | What to enter |
-| --- | --- | --- |
-| 1 | Home Assistant URL | Your address, for example `http://192.168.1.50:8123` |
-| 2 | Long-lived access token | Your token |
+| Setting in the form | What to enter |
+| --- | --- |
+| Home Assistant URL | Your address, for example `http://192.168.1.50:8123` |
+| Long-lived access token | Your token |
 
 **Part 2: choose your mode**
 
-Settings 3 and 4 are the only two that decide the mode. Both are unticked by default, which gives Mode A. If you are not sure, leave both unticked. You can change them later. See [Choose how much access to give](#choose-how-much-access-to-give).
+The two access settings, **Allow controlling devices** and **Allow editing setup**, are the only ones that decide the mode. Both are unticked by default, which gives Mode A. If you are not sure, leave both unticked. You can change them later. See [Choose how much access to give](#choose-how-much-access-to-give).
 
-| Mode | 3: Allow controlling devices | 4: Allow editing setup |
+| Mode | Allow controlling devices | Allow editing setup |
 | --- | --- | --- |
 | A: Read only (the default) | Unticked | Unticked |
 | B: Control only | Ticked | Unticked |
@@ -312,17 +312,17 @@ Settings 3 and 4 are the only two that decide the mode. Both are unticked by def
 
 These settings have safe defaults and do not depend on the mode. Leave them as they are unless the last column describes your situation.
 
-| # | Setting in the form | Default | Change it only if |
-| --- | --- | --- | --- |
-| 5 | Allow self signed certificates | Off | Your address starts with `https://` and uses a self-signed certificate |
-| 6 | Extra high risk entities | Empty | You want certain entities to always need approval before they are changed. See [Protect specific entities](#protect-specific-entities). |
-| 7 | Never touch entities | Empty | You want certain entities to never be changed, such as locks and garage doors. Optional, but recommended once you move beyond Mode A. See [Protect specific entities](#protect-specific-entities). |
-| 8 | Require an approval prompt for high risk actions | On | Risky actions are refused because your client cannot show a prompt. Switching it off means the preview and confirm steps are then the only check. |
-| 9 | Dashboards, registries, scenes, blueprints and integrations | On | You want to give the assistant fewer tools |
-| 10 | Insight tools | On | You want to give the assistant fewer tools |
-| 11 | Raw API tools | Off | You have a specific need. Read [Raw API tools](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) first. |
-| 12 | Supervisor tools | Off | You run Home Assistant OS or Supervised and want add-on and host tools. They do not work on Docker or Core installs. |
-| 13 | Entities expected to be unavailable | Empty | Some devices are often switched off and you do not want them reported as problems |
+| Setting in the form | Default | Change it only if |
+| --- | --- | --- |
+| Allow self signed certificates | Off | Your address starts with `https://` and uses a self-signed certificate |
+| Extra high risk entities | Empty | You want certain entities to always need approval before they are changed. See [Protect specific entities](#protect-specific-entities). |
+| Never touch entities | Empty | You want certain entities to never be changed, such as locks and garage doors. Optional, but recommended once you move beyond Mode A. See [Protect specific entities](#protect-specific-entities). |
+| Require an approval prompt for high risk actions | On | Risky actions are refused because your client cannot show a prompt. Switching it off means the preview and confirm steps are then the only check. |
+| Dashboards, registries, scenes, blueprints and integrations | On | You want to give the assistant fewer tools |
+| Insight tools | On | You want to give the assistant fewer tools |
+| Raw API tools | Off | You have a specific need. Read [Raw API tools](#raw-api-tools-what-they-do-and-why-they-are-off-by-default) first. |
+| Supervisor tools | Off | You run Home Assistant OS or Supervised and want add-on and host tools. They do not work on Docker or Core installs. |
+| Entities expected to be unavailable | Empty | Some devices are often switched off and you do not want them reported as problems |
 
 ### Step 3: Check it works
 
