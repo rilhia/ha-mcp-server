@@ -3,3 +3,9 @@ dist/
 .bundle/
 *.mcpb
 .env
+
+.DS_Store
+**/.DS_Store
+*.log
+.idea/
+.vscode/
